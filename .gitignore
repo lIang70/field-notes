@@ -1,0 +1,18 @@
+# Whitelist mode: ignore everything, then allow explicitly
+*
+
+# ── Git config ──
+!.gitignore
+
+# ── Root documentation ──
+!ai
+!ai/**
+!cxx
+!cxx/**
+!go/
+!go/**
+!os/
+!os/**
+
+# ── License ──
+!LICENSE
