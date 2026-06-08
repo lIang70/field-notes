@@ -15,6 +15,8 @@
 
 **Agent = 在环境中闭环运行的决策系统**：接收观测（文本/图像/结构化状态/传感器）并产生动作（工具调用/点击/写文件/移动/发消息），以最大化某个目标（完成任务、奖励、约束满足）。
 
+> 概念搞清后，"怎么跑起来" 看 [harness/](harness/)（控制循环的运行时、sandbox、I/O 边界等）。
+
 ## 典型系统架构（从工程角度看）
 
 一个可落地的智能体系统通常由这些模块组成（不一定全有，但缺了会影响上限）：
@@ -87,20 +89,25 @@
 - **鲁棒性**：换表述/换顺序/加噪声是否仍能完成
 - **安全性**：是否会越权、泄露、执行危险操作
 - **可解释性（工程可观测）**：日志、轨迹、失败原因是否能定位
+  > 日志/轨迹/成本等"可观测底座"在 [harness/observability.md](harness/observability.md)。
 
 ## 常见失败模式（排查方向）
 
 - **计划正确但执行错误**：工具参数不对、读错页面/文件、没有做验收
 - **执行正确但总结错误**：把结果“脑补”成想要的结论（典型幻觉）
 - **卡在循环**：缺少终止条件/验收条件；需要显式的 stopping rule
+  > stopping rule 的工程实现看 [harness/control_loop.md](harness/control_loop.md)；循环检测/熔断看 [harness/resilience.md](harness/resilience.md)。
 - **上下文污染**：把用户输入/网页内容当成系统指令（提示注入）
+  > 抗注入见下方的"模板库"；HITL/用户确认的运行时触发见 [harness/io.md](harness/io.md)。
 
 ## 最小可用的 Agent 设计清单（MVP）
 
 - 明确环境与动作空间（能做哪些事，不能做哪些事）
-- 每一步都有“可验证信号”（读回结果、断言、对比）
+- 每一步都有”可验证信号”（读回结果、断言、对比）
+  > 控制循环里 Check 步的工程实现看 [harness/control_loop.md](harness/control_loop.md)。
 - 有计划与进度（任务分解 + 完成条件）
 - 有边界（权限、成本、危险操作确认）
+  > 权限边界的执行落地看 [harness/sandbox.md](harness/sandbox.md)；”危险操作先确认”的 HITL 运行时看 [harness/io.md](harness/io.md)。
 
 ## 📦 模板库：通用 Agent 指令（可复制）
 
@@ -131,3 +138,19 @@
 > - 进度：你现在在做什么/下一步是什么（1-2 句）
 > - 结果：给最终可用的产出（代码/命令/文案/表格等）
 > - 验收：你如何确认它是对的（检查点列表）
+
+## 相关链接
+
+- [multi_agent.md](multi_agent.md) — 多 agent 编排（单 agent 撑不下时的拆法）
+- [harness/](harness/) — 运行时层（本文件是"概念"，harness 是"怎么跑"）
+  - [harness/control_loop.md](harness/control_loop.md) — Observe/Think/Act/Check 闭环
+  - [harness/sandbox.md](harness/sandbox.md) — 权限/资源隔离的执行环境
+  - [harness/resilience.md](harness/resilience.md) — 循环检测、超时、重试
+  - [harness/state.md](harness/state.md) — 世界状态/任务清单的持久化
+  - [harness/observability.md](harness/observability.md) — 日志/轨迹/成本/调用链
+  - [harness/io.md](harness/io.md) — 与用户/外部系统的 I/O 边界（含 HITL）
+  - [harness/lifecycle.md](harness/lifecycle.md) — 启动/暂停/恢复/终止
+- [tools.md](tools.md) — tool 协议（MCP / function calling）
+- [prompt_engineering.md](prompt_engineering.md) — 提示工程模式
+- [evals.md](evals.md) — 评测体系
+- [context_engineering.md](context_engineering.md) — 上下文内容取舍

@@ -2,7 +2,7 @@
 
 A personal knowledge base in Markdown — short, opinionated notes written for quick recall, not as tutorials. Topics: C++, Go, OS internals, AI engineering.
 
-**44 files · 4 areas · last touched 2026-06-04.**
+**51 files · 4 areas · last touched 2026-06-08.**
 
 ## What this is (and what it isn't)
 
@@ -66,9 +66,9 @@ Process/scheduling, memory, concurrency primitives, io, filesystem, payload form
 - `os/network_stack.md` — network stack
 - `os/scheduler_comparison.md` — scheduler comparison (CFS / UMS / ULE / GMP / tokio)
 
-### AI (9 files)
+### AI (16 files)
 
-Agent fundamentals, prompt (design/engineering), evals, memory systems, RAG, tools/function calling/MCP, multi-agent, context engineering.
+Agent fundamentals, prompt (design/engineering), evals, memory systems, RAG, tools/function calling/MCP, multi-agent, context engineering, and a new `harness/` subdirectory for the runtime/operational layer (sandbox, control loop, retry, state, observability, I/O, lifecycle).
 
 - `ai/agent.md` — agent fundamentals
 - `ai/prompt.md` — prompt design
@@ -79,6 +79,17 @@ Agent fundamentals, prompt (design/engineering), evals, memory systems, RAG, too
 - `ai/tools.md` — tool use / function calling / MCP
 - `ai/multi_agent.md` — multi-agent orchestration
 - `ai/context_engineering.md` — context engineering
+- `ai/harness/` — runtime/operational layer: sandbox, control loop, resilience, state, observability, I/O, lifecycle
+
+**AI harness (runtime layer, 7 files)**:
+
+- `ai/harness/sandbox.md` — sandbox & permission enforcement
+- `ai/harness/control_loop.md` — control loop implementation & stopping rules
+- `ai/harness/resilience.md` — retry / timeout / compaction triggers
+- `ai/harness/state.md` — persistence & checkpoint
+- `ai/harness/observability.md` — logging / trace / cost
+- `ai/harness/io.md` — streaming / interrupt / HITL / progress
+- `ai/harness/lifecycle.md` — process spawn / isolation / termination
 
 ## How to use
 

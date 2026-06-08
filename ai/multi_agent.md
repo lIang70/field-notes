@@ -144,18 +144,16 @@ r := runner.NewRunnerWithAgentFactory("my-app", "assistant",
 
 ### 6.3 Checkpoint & Resume
 
-把"在某一步的 state + 元数据"持久化到 store（SQLite、Postgres、Redis、对象存储），支持：
+> **运行时实现**（存储后端 / 原子写 / 幂等键 / 副作用日志）见 [harness/state.md](harness/state.md)。本节只描述 checkpoint 作为多 agent 拓扑的固有属性。
 
-- **断点续跑（Resume）**：服务挂了 / 升级 / 重启后从最近 checkpoint 继续。
-- **挂起等待（Wait / Interrupt）**：任务到某步等用户审批 / 外部事件 / 定时器；条件满足后从这一步恢复而不是从头跑。
-- **时间旅行调试（Time-Travel Debug）**：回放任意历史 checkpoint，"如果当时走 A 而不是 B 会怎样"。
-
-> 持久化 checkpoint 不是"加个 log 就行"——它要支持**强一致 + 原子写**（state + 元数据 + 已经发出的外部副作用记录），否则 resume 时会重复执行已成功的副作用。需要"幂等键 + 副作用日志 + 重做策略"三件套。
+Checkpoint 让"长事务 agent 流程"成为可能：在拓扑层面，它把执行切成可恢复的"决策点序列"——**Resume** 让失败或中断的 step 单独重跑而无需从头开始；**Wait** 把需要外部输入的节点挂起而不阻塞整张图；**Time-Travel** 允许从任意历史决策点回放，便于离线对比"如果当时走 A 而不是 B 会怎样"。三者共同要求图的边与状态对"挂起 / 恢复"语义友好。
 
 ### 6.4 Interrupt / Wait 与 Event Bus
 
-- **Interrupt / Wait**：节点主动挂起，等"信号"或"时间"或"用户输入"再继续。语义要能和 `context.Context` 干净组合（取消、超时继承）。
-- **Subject-routed event bus**：每个 step 发出**带 subject 的结构化 envelope**（不是裸字符串），下游按 subject 订阅。flowcraft 是这一思想的代表：解耦"谁在发"和"谁在听"。
+Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 消费"的拓扑手法：每个 step 用结构化 envelope + subject 发出，下游按兴趣订阅，避免图边退化成 N×N 硬连线。
+
+- **Interrupt / Wait 的运行时挂起 / 通知 / 恢复**见 [harness/io.md](harness/io.md)
+- **跨进程事件总线**的载体是 [harness/lifecycle.md](harness/lifecycle.md)
 
 ## 7. Inter-agent 协议（MCP / A2A / AG-UI 三件套）
 
@@ -207,10 +205,10 @@ r := runner.NewRunnerWithAgentFactory("my-app", "assistant",
 
 多 agent 系统里"哪些地方会挂"远比单 agent 多。可恢复性的设计必须**显式**做。
 
-- **节点级 Retry**：指数退避 + 抖动；LLM 调用重试时**不要把上一次失败的回答塞回 prompt**（容易形成回音室）。错误分类——"暂时性（限流、超时、5xx）"重试；"确定性（参数校验、权限、内容过滤）" fail-fast。
-- **Checkpoint 持久化**：关键决策点落盘 state + 已发出副作用；所有对外副作用带 idempotency_key；resume 时通过幂等键去重。存储选型：小 SQLite / 中 Redis / 大 Postgres + 异步归档。flowcraft 同时提供 Postgres + SQLite 两种 store。
-- **Replan**：某个子 agent 持续失败时，**不要无限重试同一个计划**——触发"上层重规划"：放弃当前分支、回到上一步、换工具或换 agent。Replan 本身也是 cycle 模式（planner → executor → replan loop）。
-- **HITL（Human-in-the-Loop）**：触发条件——高风险动作（删数据、对外发布、付费）、低置信度、敏感领域。实现——LangGraph `interrupt`、Mastra suspend / resume、AG-UI `INPUT_REQUIRED` 事件、A2A `input-required` task state。超时与降级——用户 30 分钟不回，触发默认行为（拒绝 / 推迟 / 转人工）。
+- **节点级 Retry**：LLM 调用出错时按错误类型选策略——"暂时性（限流 / 超时 / 5xx）"重试，"确定性（参数校验 / 权限 / 内容过滤）" fail-fast；重试时**不要把上一次失败的回答塞回 prompt**（容易形成回音室）。运行时细节（退避公式 / 抖动 / 重试预算）见 [harness/resilience.md](harness/resilience.md)。
+- **Checkpoint 持久化**：关键决策点把 state + 已发出副作用落盘，resume 时按幂等键去重——这是"幂等三件套"的核心。运行时细节（存储选型 / 原子写 / 副作用日志）见 [harness/state.md](harness/state.md)。
+- **Replan**：某子 agent 持续失败时**不要无限重试同一个计划**——回到上一步、换工具 / 换 agent 或重新分解任务，本质是上层的 cycle 模式。
+- **HITL（Human-in-the-Loop）**：触发条件——高风险动作（删数据 / 对外发布 / 付费）、低置信度、敏感领域。HITL 是**第一类公民**而不是"必要时问一下"。运行时实现（UI 通知 / 等待 / 恢复 / 超时降级）见 [harness/io.md](harness/io.md)。
 
 > **HITL 不是"必要时问一下"**——它是**第一类**公民：UI 上要看得见"系统在等什么、卡在哪、要不要批准"，否则用户对系统的信任会迅速崩塌。
 
@@ -222,7 +220,7 @@ r := runner.NewRunnerWithAgentFactory("my-app", "assistant",
 - **没有 stopping rule 的循环**："自我反思 3 次"如果不写死上限，模型可能无限循环直到成本耗尽。
 - **LLM Manager 决策不可重放**：AutoGen 风格的 GroupChatManager 用 LLM 选下一个发言者；同输入两次跑可能选出不同人——轨迹不可重放，bug 难复现。**决策点要可记录、可重放**。
 - **隐式依赖全局变量**：agent 通过模块全局变量读"业务配置"；测试时同输入却得不同结果。**配置通过显式 deps 注入**（Pydantic AI `RunContext[SupportDependencies]` 的做法）。
-- **可观测性缺失**：没有 trace、没有每步 token / cost 统计、没有失败归因——多 agent 系统出问题几乎必然陷入"玄学调试"。**上线前先解决观测**。
+- **可观测性缺失**：没有 trace、没有每步 token / cost 统计、没有失败归因——多 agent 系统出问题几乎必然陷入"玄学调试"。**上线前先解决观测**，细节见 [harness/observability.md](harness/observability.md)。
 - **角色名当 prompt 用**：把 "Architect" 当 instruction 写进 prompt，而不写"你负责把需求转成接口定义..."。模型对"角色"的执行靠的是**具体行为描述**而不是 title。
 
 ## 11. 评估（trajectory + outcome 双轨）
@@ -288,12 +286,12 @@ r := runner.NewRunnerWithAgentFactory("my-app", "assistant",
 
 - 任务图是 4 种基本模式中的哪一种明确写下，并解释了为什么
 - 状态模型已选型，"外部材料不进 state"有显式约束
-- 每个对外副作用有 idempotency_key + 副作用日志；关键节点落 checkpoint 且 resume 路径已演练
+- 每个对外副作用有 idempotency_key + 副作用日志（["幂等三件套"见 harness/state.md](harness/state.md)）；关键节点落 checkpoint 且 resume 路径已演练
 - cycle 模式都有显式最大步数 + stopping rule
 - 高风险动作有 HITL 中断 + 合理超时 + 降级路径
 - 决策点（路由 / handoff / replan）可记录、可重放
 - trajectory + outcome 双轨评测集已建并跑通基线
-- cost / latency / token 监控上线，按 agent 维度拆分
+- cost / latency / token 监控上线，按 agent 维度拆分（细节见 [harness/observability.md](harness/observability.md)）
 - 接入协议（MCP / A2A / AG-UI）的范围与版本明确
 - "为多而多"自检：每个 agent 都能回答"为什么我不能由另一个 agent 兼任"
 
@@ -304,6 +302,7 @@ r := runner.NewRunnerWithAgentFactory("my-app", "assistant",
 - [`rag.md`](rag.md)：检索增强生成（agent 的"知识来源"侧）
 - [`prompt.md`](prompt.md) / [`prompt_engineering.md`](prompt_engineering.md)：多 agent 的"指令"和"模式"基础
 - [`evals.md`](evals.md)：评测体系；trajectory / outcome / 资源指标的关系
+- [`harness/`](harness/)：运行时层（checkpoint 持久化 / retry / HITL 等待 / 进程生命周期的工程实现）
 
 ## 参考
 
