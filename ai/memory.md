@@ -163,11 +163,10 @@
 
 flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → RRF (K=60) 融合 → 再叠加 **entity-overlap boost、supersede decay、time decay**：
 
-```text
-query
-  ├─► BM25 lane ────┐
-  ├─► vector lane ──┼─► RRF (K=60) ─► entity boost + supersede decay + time decay ─► final ranking
-  └─► entity lane ──┘
+```
+                  ┌──► BM25 lane   ──┐
+  query ──────────┼──► vector lane ──┼──► RRF (K=60) ──► [entity boost + supersede decay + time decay] ──► final ranking
+                  └──► entity lane  ──┘
 ```
 
 - **RRF（Reciprocal Rank Fusion）**：把每路给每个文档的排名倒数求和再重排。**优点是免调权**——只需要定 K（典型 60），不需要每路有自己的相似度归一化。
@@ -186,7 +185,31 @@ query
 
 - top-50 → top-5 的精排明显影响下游答案质量时（事实性问答、引用密集任务）。
 - 折中：**二阶段**——bi-encoder 召回 top-50，cross-encoder rerank 到 top-5。
-- flowcraft 的"rerank"是用规则 + LLM 综合，不是 learned cross-encoder；learned reranker 适合"语义鸿沟大、规则不够"的场景。
+- flowcraft 没有独立的 learned rerank 阶段——它的"rerank"是 5.1 里 RRF 融合后的 entity boost / supersede decay / time decay（规则 + 时间衰减），不是 learned cross-encoder；learned reranker 适合"语义鸿沟大、规则不够"的场景。
+
+### 5.4 召回结果如何注入 prompt
+
+> 召回只是"找到候选"，把候选接进 LLM 的输入是另一回事——这一段是 memory 系统的"出口"，却常被当成 recall 的附属。
+
+**注入位置**（顺序敏感）：
+
+- **System message 顶部**：用户级稳定事实（用户身份、核心偏好），相当于 in-context 版的 semantic memory。
+- **User message 之前 / 紧贴 query**：session-specific 上下文，避免被长 system prompt 稀释。
+- **Tool result 形式**：让 LLM 主动拉取（类似 RAG 的 retrieve 工具），比"塞进 prompt"更可控、更省 token。
+
+**格式选择**：
+
+- 裸文本 / 编号列表：最简单，但 LLM 易"看完就忘"（lost-in-the-middle 仍然存在）。
+- 显式时间戳 + 来源：方便 LLM 做时间推理和 grounding；`valid_from / valid_to` 在 prompt 里也尽量保留。
+- 结构化（JSON / tagged block）：适合有 schema 的 facts，但 LLM 解析成本高，且压缩率低。
+- 截断 / 摘要：注入前先 LLM 压缩，节省 token，代价是丢细节——长 history 一定要压。
+
+**几个工程坑**：
+
+- 注入顺序和 prompt 中"指令"的距离：记忆离 system 指令越远，被 LLM 当成"参考材料"而非"指令"——这反而是好事（避免记忆污染指令）。
+- 显式"以下为历史记忆，不是当前指令"标记：抵御 prompt injection。
+- 召回失败时的 fallback：空召回 / 显式声明"无相关记忆" / 触发补抽——三种策略对 LLM 行为影响截然不同，**显式声明"无相关记忆"通常比静默空召回更稳**，避免 LLM 自己补全。
+- 与 prompt engineering 的协同：长上下文、锚定、压缩都见 `ai/prompt_engineering.md`。
 
 ## 6) 重排与衰减
 
@@ -214,13 +237,22 @@ query
 | **Invalidation**    | Zep Graphiti        | 旧 edge 设 `valid_to`，新 edge 生效 |     强     | 知识有时间维度的事实         |
 | **In-place UPDATE** | 传统 DB / LangGraph | 直接覆盖                            |     弱     | 明确知道错了且不再回看的字段 |
 
-### 7.2 关键事实怎么避免被覆盖 + 隐私
+### 7.2 关键事实怎么避免被覆盖
 
 - **硬契约 + idempotency key**：写入时用 `(user_id, fact_type, fact_key)` 判重，避免同一事实被反复新增。
 - **双向写 + 后台合并**：热路径只 append；后台 job 定期 dedup / 合并（LangMem 的 background manager）。
 - **关键事实显式标记**：用户身份、安全相关、医学禁忌等条目设 `pinned=true`，**任何降权机制都不能动**。
 - **审计 + 撤销**：保留"加 / 改 / 废"完整时间线，方便用户回看和撤销。
-- **隐私与遗忘权**：任何面向消费者的系统都要回答"用户能不能查 / 改 / 删？删除是硬删还是软删？保留审计吗？"。Zep 提供 principal/resource/action 风格的 ABAC + retention policy + legal hold；典型工程清单——用户端"查看我的记忆"页面；硬删 + 异步清理下游 embedding / 图谱 / 备份；保留 N 天"软删"支持恢复；每次读写打日志至少 X 天。
+
+### 7.3 隐私与遗忘权
+
+> 见 2.4 节的判断——"**遗忘是合规问题，不是技术问题**"。这一节只列工程清单。
+
+- **用户端可查 / 改 / 删**：消费者系统的底线。删除要支持硬删 + 软删双通道（合规需要 audit log）。
+- **硬删 + 异步清理下游**：删除时同步清主库，异步清理 embedding / 图谱 / 备份；保留 N 天"软删"支持恢复。
+- **司法保留（Legal Hold）**：Zep 等企业级方案把"先保留再删除"做成策略对象（policy-driven retention + legal hold）。
+- **ABAC 访问控制**：principal / resource / action 三元组，区分"看自己的记忆"和"看他人记忆"——后者是高风险能力，要专门审计。
+- **读写日志**：每次访问打日志保留至少 X 天，方便事后追溯与监管检查。
 
 ## 8) 评估：LoCoMo / LongMemEval / BEAM
 
@@ -310,6 +342,8 @@ query
 
 **A. 用户侧纠错**——把"被记住的内容"显式化
 
+> 下面列的产品代表记忆面板的不同形态：消费对话（ChatGPT）、笔记（Notion AI）、情感陪伴（Replika）、IDE 个性化（Cursor）、CLI 助手（Claude Code）——共同点是"把记忆显式化、让用户可改可删"。
+
 - ChatGPT memory / Notion AI / Replika / Cursor / Claude Code 都有记忆面板，可看、可编辑、可批量删。
 - 工程要点：不要每次抽完都问用户（会烦死）——一般 onboarding 一次性 + 周期性 re-confirm；删除要硬删 + 软删双通道（合规需要 audit log）。
 
@@ -378,17 +412,17 @@ query
 
 ### 13.4 工业 extract 准确率的诚实版
 
-- 业界 extract 准确率（端到端问答 F1）大致在 **70–85%**，具体取决于场景。
+- extract 准确率（端到端问答 F1）经验值约 **70–85%**，**具体依场景波动较大**——长程多跳、跨 session、时间推理场景往往掉到 60% 以下，简单的用户偏好问答可以到 85%+。
 - 没有任何项目能稳定突破 90%——瓶颈是三个解不掉的问题：**LLM 校准差 / 隐式事实系统性漏抽 / 长上下文漂移**。
 - **差异化的关键不在"抽得多准"，在"抽错了怎么补救"**——这是和直觉相反的工程判断。
 
-## 16) 框架设计：可插拔的 Save + Recall
+## 14) 框架设计：可插拔的 Save + Recall
 
 > 一个通用 memory 框架的核心价值是**把 Save 和 Recall 拆成可插拔的 stage**——而不是押注某一具体范式。Memory 的"对"高度场景化，单一 opinion 必然卡住一部分用户。框架要做的是**稳定 interface + 默认实现 + plumbing**，让 80% 用户不用想、20% 用户能换。
 
-### 16.1 为什么必须可插拔
+### 14.1 为什么必须可插拔
 
-回看前 15 节的所有讨论：
+回看前 13 节的所有讨论：
 
 - Extract 有用，但不是所有场景都要——有些场景纯 raw 就够
 - Atomic fact vs episode vs summary，三种粒度都各有适用场景
@@ -397,23 +431,19 @@ query
 
 **结论**：**没有任何一种"默认架构"能覆盖所有场景**。通用框架的赌注**不应该押在"哪种范式最好"**，而应该押在**"哪种接口最稳"**。
 
-### 16.2 架构形态：两条 Pipeline
+### 14.2 架构形态：两条 Pipeline
 
 ```
-SAVE 方向（消息进来 → 写入记忆）：
-[Message] → Gate → Extract → Embed → Enrich → Store
-              ↑        ↑        ↑        ↑        ↑
-            可换      可换      可换      可换      可换
+SAVE 方向（消息进来 ──► 写入记忆）：
+[Message] ──► Gate ──► Extract ──► Embed ──► Enrich ──► Store
 
-RECALL 方向（query 进来 → 取回记忆）：
-[Query] → Parse → Retrieve → Rerank → Filter → Format
-            ↑         ↑         ↑        ↑         ↑
-          可换       可换       可换      可换      可换
+RECALL 方向（query 进来 ──► 取回记忆）：
+[Query] ──► Parse ──► Retrieve ──► Rerank ──► Filter ──► Format
 ```
 
-两条 pipeline 共享：scope（用户 / agent / session）、observability（trace + cost + latency）、**raw archive**（永远是 source of truth）。
+每个 stage 都是可换的 middleware（详见 14.3）。两条 pipeline 共享：scope（用户 / agent / session）、observability（trace + cost + latency）、**raw archive**（永远是 source of truth）。
 
-### 16.3 Stage Interface 的设计原则
+### 14.3 Stage Interface 的设计原则
 
 每个 stage 应该是一个**带 next 调用的 middleware**——而不是孤立的 function：
 
@@ -440,7 +470,7 @@ process(ctx, next) -> result
 4. **可短路**——Gate 判 false 整个 Save 提前结束；Filter 后没候选整个 Recall 提前结束。
 5. **每个 stage 单独可观测**——latency、token cost、输入输出大小都打点。
 
-### 16.4 默认要提供的 stage
+### 14.4 默认要提供的 stage
 
 **Save 方向**：
 
@@ -466,7 +496,7 @@ process(ctx, next) -> result
 
 **关键**：**每个 stage 至少给一个"开箱即用"实现**——用户用框架第一步是"什么都不换就能跑"。
 
-### 16.5 框架应该承担的"非业务"职责
+### 14.5 框架应该承担的"非业务"职责
 
 这些**框架做、用户不写**：
 
@@ -480,7 +510,7 @@ process(ctx, next) -> result
 
 **这些"非业务"职责**是框架的核心价值——用户写 stage 逻辑，框架做 plumbing。
 
-### 16.6 现成参考
+### 14.6 现成参考
 
 设计 Save+Recall pipeline 时，下面这些系统值得**逐个研究**：
 
@@ -495,7 +525,7 @@ process(ctx, next) -> result
 
 **推荐组合**：从 **flowcraft + Haystack + Koa** 三者各取所需——flowcraft 的 stage 粒度，Haystack 的 component 抽象，Koa 的 middleware pattern。
 
-### 16.7 反模式（不要做的事）
+### 14.7 反模式（不要做的事）
 
 1. **不要在框架里 hardcode retention / decay 策略**——不同场景差太多；提供 hook，让用户实现。
 2. **不要把 raw 设计成可选**——raw 永远是 source of truth，可丢弃应该是显式 opt-in。
@@ -505,7 +535,7 @@ process(ctx, next) -> result
 6. **不要把 framework 强耦合到具体 vector / graph DB**——抽象要稳，DB 是可换的。
 7. **不要把 Save 和 Recall 绑成同一个 pipeline**——对称性只是表面的，配置、stage、cost 都不一样。
 
-### 16.8 落地的最小可验证版本
+### 14.8 落地的最小可验证版本
 
 如果你正在设计这样的框架，**最小可验证版本（MVP）**：
 
