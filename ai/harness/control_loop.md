@@ -6,11 +6,11 @@
 - 一个 session = 一个 while-loop + 显式状态机：`idle → running → awaiting_tool / awaiting_user → done | failed`，每轮 `build prompt → call LLM → parse → dispatch tool → observe → 拼回`。
 - 多 agent 4 模式（Chain / Parallel / Cycle / Graph）共享**同一套 driver**；区别只在"下一步"由谁选、怎么等。
 - 终止条件是**分层防御**——协议 `finish_reason`、步数上限、超时、成本预算、语义 stopping rule 互相补位，单层永远会被绕过。
-- 反直觉点：循环复杂度 ≠ 智能；智能在模型里，driver 是"行动表达的接口"。把状态藏在调用栈、想让一个 loop 套所有事、相信 `finish_reason="stop"` 都属于典型坑。
+- 循环复杂度 ≠ 智能；智能在模型里，driver 是"行动表达的接口"。把状态藏在调用栈、想让一个 loop 套所有事、相信 `finish_reason="stop"` 都属于典型坑。
 
 ## 1. 概念 → 接口的映射
 
-[`agent.md`](../agent.md) 第 44-48 行给了概念骨架，对应到 driver 的具体动作是：
+[`agent.md`](../agent.md) 的"典型系统架构"一节给了概念骨架（Observe → Think → Act → Check → Repeat），对应到 driver 的具体动作是：
 
 | 概念步  | Driver 里的具体动作                                                                 |
 | :------ | :---------------------------------------------------------------------------------- |
@@ -87,7 +87,7 @@ def run(session: Session) -> Result:
 
 > **显式状态 vs 隐式栈**：step-by-step 的局部变量当 state，进程一挂就要从头跑。state 必须持久化、checkpoint、恢复——见 `./state.md`。
 
-## 3. 解析输出：三种 finish_reason 的分发
+## 3. 解析输出：finish_reason 的分发
 
 LLM 一轮的返回里 driver 只关心三件事，按出现顺序处理：
 
@@ -141,7 +141,7 @@ token 级流式对 driver 的影响不在"快一点"，而在"**状态机可以�
   - OpenAI 用 `delta.tool_calls` 增量累积，需要按 `index` 拼装
 - **中断语义**：流式下用户可以"在生成中按停"——abort signal 传到 LLM 连接、关 sandbox、partial state 落 checkpoint。详见 [`./io.md`](./io.md)。
 
-> **反直觉**：流式的核心收益不是 latency，是**可交互性**。首 token 提前是副作用，能在 token 级别 cancel / steer / 追加输入才是设计目标。
+> 流式的核心收益不是 latency，是**可交互性**。首 token 提前是副作用，能在 token 级别 cancel / steer / 追加输入才是设计目标。
 
 ## 7. tool_call 解析的工程细节
 
@@ -151,7 +151,7 @@ driver 要兼容三种 tool call 来源：
 - **文本嵌入的工具指令**（ReAct 风格的 `Action: ... Action Input: {...}`）：需要正则 / grammar 解析；多轮 batch 时按出现顺序拼回
 - **多轮 tool call 的批处理**：同一 `finish_reason=tool_use` 里可能有 N 个 call，driver 要**并行**调（前提是相互独立，详见 [`../tools.md`](../tools.md) §7），再统一回填
 
-## 8. 反直觉点
+## 8. 三个容易写反的地方
 
 > **控制循环不是 agent "思考"的引擎，而是 agent 表达"行动"的接口。**
 

@@ -22,23 +22,32 @@ func create() *User {
 }
 ```
 
-### 2. 接口类型逃逸 (Dynamic Dispatch)
+### 2. 接口类型逃逸 (Boxing)
 
-编译期间很难确定接口具体指向的类型，通常会逃逸。
+接口值本身是 16 字节的 `(type, data)`；逃逸的根因不是"动态派发"，而是**装箱**：具体值类型要放进 `data` 就得有可寻址的存储，值被外传时只能上堆。
 
 ```go
 func print(v interface{}) {
-    fmt.Println(v) // fmt.Println 内部接收 interface{}，导致 v 逃逸
+    fmt.Println(v) // v 已经是接口值，这里不再"装箱"；它本身逃逸是因为被传到别的函数
 }
+
+func box(t T) { var i interface{} = t; sink(i) } // 这里才是一次真正的装箱
 ```
 
-### 3. 栈空间不足
+> 判据看调用点：能内联/去虚拟化时 `-m` 会报 `does not escape`；跨包、存进容器或全局时才会看到 `escapes to heap`。
 
-当变量过大（超过栈帧大小，Go 默认栈初始 2KB，但这通常指局部大对象如大数组）时，会分配到堆上。
+### 3. 栈变量上限与"外传"
+
+goroutine 初始栈是 2KB，但栈会长；**决定逃逸的不是 2KB**，而是两件事：变量是否被外传（返回、存进全局/接口/闭包），以及是否超过编译器的栈变量上限（`maxStackVarSize` 10MB、`maxImplicitStackVarSize` 64KB）。
 
 ```go
 func huge() {
-    s := make([]int, 10000) // 可能逃逸
+    s := make([]int, 10000) // 80KB：s 不外传就仍可能在栈上
+    _ = s
+}
+
+func leak() []int {
+    s := make([]int, 10000); return s // 外传 → 堆
 }
 ```
 

@@ -1,5 +1,7 @@
 # 上下文工程 (Context Engineering)
 
+> 数字核对：2026-10-27。窗口与单价只在这里集中写一遭，正文一律用“能力档”表达（轻量 / 主力 / 长上下文），换模型时只改这一段。
+
 ## TL;DR
 
 - **CE = 决定"塞进窗口里那一坨信息"的工程学**，是 PE 的上位概念：PE 关心"写好一句话"（几十～几千 token），CE 关心"用好整个窗口 + 窗口外的一切"（1K–1M token）。
@@ -28,25 +30,32 @@
 
 ### 窗口大小
 
-| 区间     | 典型模型                    | 适用场景                                         |
-| :------- | :-------------------------- | :----------------------------------------------- |
-| 4K–8K    | 旧模型 / 边缘部署           | 单轮简单任务                                     |
-| 32K–128K | 主流大模型                  | 中等长文档、多轮对话                             |
-| 200K     | Claude Sonnet 4 / 4.5       | 长文档分析、agent 中等任务                       |
-| 1M+      | Claude Opus 4.x、Gemini 1.5 | 长视频/长代码库——但**长 ≠ 稳**（见 context rot） |
+按"档位"记比按型号记寿命长：
+
+| 档位 | 典型值 | 适合什么 |
+| :--- | :--- | :--- |
+| 小窗口 | 4K–8K | 边缘部署、老模型、高并发低成本场景 |
+| 便宜档默认 | 32K–128K | 抽取 / 分类 / 短对话——大多数任务够用 |
+| 主力档 | 200K–1M | 单轮长文档、中等长度的 agent 任务 |
+| 长上下文档 | 1M+ | 长视频 / 大代码库；但**长 ≠ 稳**（见 context rot） |
+
+> 截至 2026-10：主力档普遍到 **1M**（Claude Sonnet 5.5 / Opus 5.5 都是 1M 窗口），200K 退成便宜档上限；真正拉开差距的不再是窗口长度，而是同窗口下的价格与稳定性。引用具体型号与窗口前，查一次官方模型页。
 
 ### 单价与计费
 
-输入 / 缓存写 / 缓存读 / 输出是**四种不同单价**。以 Claude 3.5 Sonnet（2024 年参考价）为例：
+输入 / 缓存写 / 缓存读 / 输出是**四种不同单价**。**记倍率，不记绝对值**——倍率结构几年不变，绝对值三个月就变：
 
-| 项          | 单价（USD / MTok） | 倍率     |
-| :---------- | :----------------- | :------- |
-| Base input  | 3                  | 1×       |
-| Cache write | 3.75               | 1.25×    |
-| Cache read  | 0.30               | **0.1×** |
-| Output      | 15                 | 5×       |
+| 项 | 相对 base input 的倍率 | 说明 |
+| :--- | :--- | :--- |
+| Base input | 1× | 未命中缓存的输入 |
+| Cache write（短 TTL，如 5m） | ≈ 1.25× | 写缓存要溢价 |
+| Cache write（长 TTL，如 1h） | ≈ 2× | 存得久，溢价更高 |
+| Cache read / hit | 0.02×–0.1× | 命中后大幅便宜，代际之间差很多，以官网表为准 |
+| Output | ≈ 5× | 自回归解码逐 token 计费 |
 
-> **关键经济学**：缓存读是 base 的 1/10。"稳定的静态前缀"放进 cache 是直接省钱——但前提是它**真的稳定**（见缓存反模式）。
+> 2026-10 的一个实例：Claude Sonnet 5.5 是 `$2 / $10` per MTok（输入 / 输出），1M 窗口、128K 输出；Fable 5.1 是 `$10 / $12.5 / $20 / $0.25 / $50`（输入 / 5m 写 / 1h 写 / 命中 / 输出）。写倍率与表一致（1.25× / 2× / 5×），命中率是 base 的 0.025×——比老模型的 0.1× 还低，所以表里只写区间。
+>
+> **关键经济学**：缓存读是 base 的零头。"稳定的静态前缀"放进 cache 是直接省钱——但前提是它**真的稳定**（见缓存反模式）。
 
 ### 什么时候"长上下文"不是答案
 
@@ -136,11 +145,11 @@
 
 ### 厂商对比
 
-| 厂商                            | 触发                       | 最小长度     | TTL           | 折扣              | 关键约束                                       |
-| :------------------------------ | :------------------------- | :----------- | :------------ | :---------------- | :--------------------------------------------- |
-| **Anthropic** (`cache_control`) | 显式 marker（最多 4 断点） | 1K–4K 视模型 | 5min / 1h     | 写 1.25×、读 0.1× | 严格 prefix 匹配；2026-02-05 起 workspace 隔离 |
-| **OpenAI**                      | 自动（prefix hash）        | 1024         | 5–10min / 24h | 读 ≈ 0.1×         | 完全自动；工具 / 图片 / schema 也算 prefix     |
-| **Google (Gemini)**             | 隐式 prefix 缓存           | 视模型       | 视模型        | 视模型            | 与 Vertex / AI Studio 行为略不同               |
+| 厂商 | 触发 | 最小长度 | TTL | 折扣 | 关键约束 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Anthropic** (`cache_control`) | 显式 marker（每请求最多 4 个断点） | 1K–4K 视模型 | 5min / 1h | 写 1.25×（5m）/ 2×（1h）；读到零头 | 严格 prefix 匹配；2026-02-05 起 workspace 隔离 |
+| **OpenAI** | 自动（prefix hash） | 1024 | 5–10min / 24h | 读 ≈ 0.1× 量级 | 完全自动；工具 / 图片 / schema 也算 prefix |
+| **Google (Gemini)** | 隐式 prefix 缓存 | 视模型 | 视模型 | 视模型 | 与 Vertex / AI Studio 行为略不同 |
 
 > **共同点**：都靠 **prefix 匹配**——prefix 变，缓存就 miss。"高频变化"绝对不能放进 cache 前缀。参考：[Anthropic: Prompt caching](https://platform.claude.com/docs/en/docs/build-with-claude/prompt-caching)、[OpenAI: Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching)。
 
@@ -222,7 +231,7 @@
 - **把"高频变化"放进缓存前缀**：cache marker 放在"每请求变"的内容上 → 永远 miss + 付 cache write 钱。修：marker 放在"最后稳定块"的**末尾**。
 - **把"任务无关"的内容塞进 prompt 凑数**：挤占有效 token 容量、核心指令被埋、风格被无关示例带跑。修：few-shot 要**精不要多**（1–2 个典型 + 1 个反例）；背景要**任务相关**。
 - **把"大块工具结果"原样塞回**：单次工具调用占光窗口，缓存布局全乱。修：工具层截断 + 二次抽取；或让 agent 用指针二次取用。
-- **相信"模型能识别坏指令"**：外部材料里夹"忽略以上规则" → 注入成功。修：明确优先级（系统 > 用户 > 外部材料）、高风险动作二次确认（见 `prompt.md` 安全一节）。
+- **相信"模型能识别坏指令"**：外部材料里夹"忽略以上规则" → 注入成功。修：明确优先级（系统 > 用户 > 外部材料）、高风险动作二次确认（见 `prompt_engineering.md` 安全一节）。
 
 ## 评估：怎么知道 context 装得好不好
 
@@ -247,6 +256,43 @@ Context 装得好不好，独立于"最终任务成功率"也要测。四类指�
 - [ ] **eval 含 context 指标**：信息命中率、必要 token 比、cache hit rate、adversarial 子集
 - [ ] **观测齐全**：`usage` 块里的 cache 字段都有；TTFT / p99 latency 按长度分桶
 
+## 实践账：上限、计量与缓存
+
+> 来自 opencraft（开源）和一个内部对话产品的调优。数字是实打实跑出来的，机制去掉了业务标识。
+
+### 先给四类东西定上限
+
+| 对象 | 做法 | 不定会怎样 |
+| :--- | :--- | :--- |
+| transcript | 一轮只保留有界条目，超了折叠 | 每轮重发一遍历史，费用隐性地涨 |
+| 工具结果 | 固定上限（如 32k）+ 截断缓存（原文另存可回捞） | 截断不可恢复，模型永远拿不到中段 |
+| 大对象 | PDF 流式出字节，不内嵌 base64 | 上下文爆炸，外加序列化抖动 |
+| 密钥 | 进上下文前替换，审计流写 JSONL | 展示时再脱敏已经晚了 |
+
+配套三条：动态工具注入按真实工具目录算预算，不是按模型上限；JSON 结果截断后要修尾，否则下游工具直接报错（工具调用失败往往不是模型错，是你截断了它）；每个上限都要能回答“超了之后会怎样”——排队、折叠还是报错。没写清的上限等于随机行为。
+
+### 计量规则只能有一份实现
+
+“这段频道占多少 prompt token”看着是一个函数，实际会被四处用到：记忆钩子、上下文表盘、折叠工具、压缩节点。
+
+每个调用点自己实现一遍，很快就会出现表盘说 80%、实际已经爆窗口的分歧。做法是一条共享 util，多处引用；策略（何时折、折哪段、怎么回写）留在图资产里。计量不是策略，别混。
+
+### 压缩要可复用
+
+折叠对话前缀很贵。把摘要按会话持久化，并对被摘要那段算内容哈希，重复压缩命中就复用，不要重新摘要同一批消息。
+
+写回时重新测量一次，因为摘要本身可能比预期长——出现过“压缩后更满”。触发条件写成显式阈值加幂等标记，不靠“上次好像折过了”。
+
+### 缓存是排序问题
+
+实测有效的一条（某国内 provider 的自动 prompt cache）：同一个角色或会话内不变的内容放前面，场景变量、时间、临时指令后置。
+
+前提是可观测：`usage.cached_input_tokens` 要进 telemetry，不然无法判断改动有没有提升命中。
+
+但别为了命中率破坏位置效应。把易变内容全塞末尾可能让指令优先级变差，Lost-in-the-Middle 那一条比缓存收益更硬。
+
+反模式：时间戳、随机 ID、当前场景写在 system prompt 开头。每次都 miss，而且肉眼看不出来。写 prompt 时先问“哪一段会变”，再问“写得好不好”。
+
 ## 关键参考来源
 
 - **Anthropic**：[Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)（CE 官方定义）、[Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)（RAG 失败率 -35% / -49% / -67%）、[Prompt caching](https://platform.claude.com/docs/en/docs/build-with-claude/prompt-caching)（`cache_control` / TTL / 预热）、[Context windows](https://platform.claude.com/docs/en/docs/build-with-claude/context-windows)（context rot / compaction）、[Building Effective Agents](https://www.anthropic.com/research/building-effective-agents)（orchestrator-workers）
@@ -257,10 +303,11 @@ Context 装得好不好，独立于"最终任务成功率"也要测。四类指�
 ## 相关链接
 
 - [`ai/prompt_engineering.md`](prompt_engineering.md)——"长上下文技巧"那一节讲 prompt **内部**排版（锚定、分段标签、`[[id]]` 引用、缓存友好布局），本篇讲 prompt **外部**装配；其余 prompt 模式（CoT / ReAct / 结构化输出）见该文
-- [`ai/prompt.md`](prompt.md)——5 元素框架与 Level 1/2/3 层级（CE 的"指令层"基础）
+- [`ai/prompt_engineering.md`](prompt_engineering.md)——5 元素框架与 Level 1/2/3 层级（CE 的"指令层"基础）
 - [`ai/agent.md`](agent.md)——agent 闭环架构（CE 的"动作层"基础）
 - [`ai/evals.md`](evals.md)——context 利用率、必要 token 比、cache hit rate 这些指标的测试方法
 - [`ai/memory.md`](memory.md)——长期 memory 系统的工程实现（本篇"外部层"的具体落地）
+- [`ai/inference_serving.md`](inference_serving.md)——自建推理侧的成本与延迟账（缓存命中与 TTFP 在同一张表里看）
 - [`ai/rag.md`](rag.md)——RAG 作为"动态 context"装配的具体做法
 - [`ai/tools.md`](tools.md)——tool result 折叠、artifact 模式的具体做法
 - [`ai/multi_agent.md`](multi_agent.md)——sub-agent 拓扑、context 隔离的具体做法

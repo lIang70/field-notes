@@ -134,13 +134,13 @@ Guest 维护的是“虚拟物理地址 (GVA → GPA)”的页表，宿主要做
 - `io`, `io.max` — 块设备带宽/IOPS 限额
 - `pids`, `pids.max` — 进程数上限（防 fork 炸弹）
 
-> cgroup 不是 namespace 的“强化版”。把配额调小可以让容器 OOM，但**不能让容器 OOM 时不波及同 cgroup 的兄弟进程**——隔离强度有差。
+> cgroup 不是 namespace 的"强化版"。它约束的是**用量**，不隔离视图：`memory.max` 触发的 OOM 会在这个 cgroup 内挑一个进程杀，同组的兄弟进程一起受影响。
 
 ### 3.3 镜像与 rootfs：UnionFS 与分层
 
 容器镜像本质是一个**层叠的 rootfs**：
 
-- 每一层是一个 tar + 一些元数据（环境变量、入口、配置）。
+- 每一层只是一个文件系统变更的 tar（含 whiteout 删除标记）；环境变量、入口、配置存放在镜像 config 里。
 - 运行时通过 **UnionFS (overlayfs/aufs)** 把多层叠成一个统一视图。
 - 写时复制 (Copy-on-Write)：只有被改动的文件才占用新空间。
 
@@ -195,7 +195,7 @@ runc run mycontainer
 
 ### 5.1 常见逃逸路径
 
-- **特权容器 (`--privileged`)**：关闭大量 capability，挂载 `/dev`、关闭 AppArmor/seccomp。容器内能直接访问宿主机设备，等价于“容器内 root ≈ 宿主机 root”。
+- **特权容器 (`--privileged`)**：放开全部 capability，挂载宿主 `/dev`，并解除 device cgroup / AppArmor / seccomp 的默认约束。容器内能直接访问宿主机设备，等价于“容器内 root ≈ 宿主机 root”。
 - **危险的 host 模式**：
   - `--net=host`：直接拿到宿主机网络栈，能嗅探/劫持宿主机流量。
   - `--pid=host`：能看到宿主机所有进程，攻击面直接拉到全机。

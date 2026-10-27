@@ -54,7 +54,7 @@ I/O 多路复用的 epoll/io_uring 部分与 [`io.md`](io.md) 互补阅读；CPU
 ### 1.5 到达用户态
 
 - 用户线程阻塞在 `epoll_wait` 上，网卡收包 → 协议栈入队 → `epoll_wait` 返回 → 用户态 `read`。
-- 关键不变量：**协议栈里不允许睡眠**；任何需要睡眠的逻辑（`skb` 分配失败等）都会把包丢回队列，等下次软中断再处理。
+- 关键不变量：**softirq 上下文不能睡眠**；这里分配 `skb` 失败就直接丢包并计入 `rx_dropped`。需要睡眠的逻辑只能放在 process context（用户态 `recv` 那侧）。
 
 ## 2. 零拷贝路径
 
@@ -209,7 +209,7 @@ io_uring_cqe_seen(&ring, cqe);
 ```
 
 - **XDP**：
-  - 位置最早（在驱动 `NAPI` 之前）。
+  - 位置最早：就挂在驱动的 `NAPI` poll 里、DMA 之后、建 `skb` 之前。
   - 可以 `XDP_PASS / XDP_DROP / XDP_TX / XDP_REDIRECT`。
   - **不能**访问完整的 socket 上下文；只能看到包头。
   - 高性能：DDoS 抗攻击、负载均衡入口、协议无关处理。
@@ -230,7 +230,7 @@ io_uring_cqe_seen(&ring, cqe);
 ## 常见误区
 
 - “**sendfile 一定比 read+write 快**”：在小文件/冷缓存下不一定；首次需要预热 page cache。
-- “**TSO 打开就万事大义**”：在 iptables/nftables 重负载或 QoS 严格场景下要重新评估。
+- "**TSO 打开就万事大吉**"：在 iptables/nftables 重负载或 QoS 严格场景下要重新评估。
 - “**epoll 一定能扛 10 万连接**”：单机 10 万连接只是开始，**内存**（socket buffer、fd 表）和**协议栈调参**才是瓶颈。
 - “**XDP 能替代 iptables**”：能力范围不同；XDP 看不到 conntrack，做不到 NAT 之类的有状态逻辑。
 - “**零拷贝一定省 CPU**”：注册/校验/回收的开销在短连接场景可能反咬；按业务测。

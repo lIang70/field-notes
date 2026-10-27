@@ -1,5 +1,7 @@
 # AI 记忆系统（Memory Systems）
 
+> 数字核对：2026-10-27。横向对比的系统（mem0 / Letta / LangMem / Cognee / Zep / A-MEM / trpc-agent-go）都是 2025–2026 的形态，接口与能力还在变，引用具体产品结论前先看官方当前文档。
+
 ## TL;DR
 
 - LLM 自身没有跨调用的状态，**memory 是把"多轮 / 跨会话的连续性"外置到系统**。这一篇从工程角度拆开：分层、操作、抽取、存储、检索、衰减、更新、评估。
@@ -104,8 +106,8 @@
 
 ### mem0：单次 ADD-only 抽取
 
-- 流程：每次新消息触发一次 LLM 抽取，**只追加新 fact**，不做 UPDATE/DELETE。保留历史，矛盾用时间戳 + 检索时的衰减解决。
-- 论文结果（LoCoMo 基准）：相对 OpenAI 全上下文方法，**LLM-as-a-Judge 提升 26%、p95 延迟降 91%、token 成本降 >90%**（arxiv 2504.19413）。
+- 流程：每次新消息触发一次 LLM 抽取，再由模型判 **ADD / UPDATE / DELETE / NOOP**（mem0 论文的四选一）。实践上绝大多数量落到 ADD——旧事实靠时间戳、衰减与 supersede 处理，而不是就地覆盖。
+- 论文结果（LoCoMo 基准，arxiv 2504.19413）：相对 OpenAI 的 memory 功能，LLM-as-a-Judge 高 **26%**；相对全上下文方法，p95 延迟低 **91%**、token 成本低 **90%+**。三个数字的基线不是同一个，别混着引用。
 - **代价**：同主题可能有几十条历史 facts，存储膨胀；需要靠**检索时的过滤**（按时间 / 置信度 / supersede）来保持召回质量。
 - **Pre-filter gate**：论文口径是"每条消息都抽"，实际工程里几乎没人这么做——80% 对话是寒暄 / 确认 / 过渡，全量抽取 = 高成本 + 噪声库。生产系统通常加一道 gate（"这条消息是否含值得长期记忆的信息"），用 LLM 判别、规则匹配或用户明示触发（"记住这个"）。判错代价不对称——漏抽一个事实后续补更贵，多抽十条噪声污染检索但代价有限——所以 gate 倾向"宁可过抽"。
 
@@ -159,11 +161,11 @@
 > 2. 纯 BM25：用户说"那个我们聊过的供应商"，关键词检索不到。
 > 3. 纯图遍历：需要先有"起点节点"，而自然语言 query 通常没有。
 
-### 5.1 经典三路融合（flowcraft `sdk/recall`）
+### 5.1 经典三路融合（flowcraft `backends/memory/retrieval/fusion`）
 
 flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → RRF (K=60) 融合 → 再叠加 **entity-overlap boost、supersede decay、time decay**：
 
-```
+```text
                   ┌──► BM25 lane   ──┐
   query ──────────┼──► vector lane ──┼──► RRF (K=60) ──► [entity boost + supersede decay + time decay] ──► final ranking
                   └──► entity lane  ──┘
@@ -185,7 +187,7 @@ flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → 
 
 - top-50 → top-5 的精排明显影响下游答案质量时（事实性问答、引用密集任务）。
 - 折中：**二阶段**——bi-encoder 召回 top-50，cross-encoder rerank 到 top-5。
-- flowcraft 没有独立的 learned rerank 阶段——它的"rerank"是 5.1 里 RRF 融合后的 entity boost / supersede decay / time decay（规则 + 时间衰减），不是 learned cross-encoder；learned reranker 适合"语义鸿沟大、规则不够"的场景。
+- flowcraft 的 rerank 是**可选**的 LLM listwise 精排（`retrieval.rerank`，默认关，见 `backends/memory/retrieval/rerank`）；默认链路只有 RRF 融合 + 维护 overlay 的 supersede / time decay，没有 cross-encoder。learned reranker 适合"语义鸿沟大、规则不够"的场景，代价是每次查询多一次模型调用。
 
 ### 5.4 召回结果如何注入 prompt
 
@@ -271,9 +273,12 @@ flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → 
 - 关键发现：商业 chat assistants 与长上下文 LLM 在**跨 session 信息保持**上掉 30% 以上准确率。
 - 三阶段框架：**Indexing → Retrieval → Reading**；优化方向：session 分解、fact-augmented key expansion、time-aware query expansion。
 
-### 8.3 BEAM
+### 8.3 BEAM（ICLR 2026）
 
-- 同样聚焦长期记忆，但更强调"行为可观测"——agent 是否真的在多轮后做出**与历史一致**的决策。适合评估 agent 整体（model + memory + tools）。
+- 全名 _Beyond a Million Tokens: Benchmarking and Enhancing Long-Term Memory in LLMs_（BEAM，配套方法叫 LIGHT；arxiv 2510.27246）。
+- 规模：100 段多领域对话，长度分 128K / 500K / 1M / 10M token 四档，2,000 道人工校验题，覆盖 **10 类记忆能力**（不只是事实召回）。
+- 适合评估 agent 整体（model + memory + tools）：重点不是"记不记得"，而是多轮后能否做出与历史一致的决策。
+- 相比 LoCoMo（约 300 轮）和 LongMemEval（500 道题、单会话十余万 token），BEAM 把压力放在"百万 token 以上 + 多能力维度"。
 
 ### 8.4 评测设计要点
 
@@ -282,7 +287,7 @@ flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → 
 - **污染控制 + 金标 hygiene**：基准集在训练截止后公开、与训练集去重；多评审 + rubric；不靠单一 LLM-as-Judge。
 - **能力 vs 任务分离**：能区分"模型能力差"还是"记忆系统差"——理想是同一组对话喂给"无记忆基线 / 全上下文 / 你的 memory 系统"。
 
-> 一个反直觉点：**模型能力越强，memory 系统的相对收益越低**。当底层 LLM 强到能把对话压缩成内部表征时，外部 memory 的边际价值下降。所以 memory 评测要**把基线模型锁住**。
+> **模型能力越强，memory 系统的相对收益越低**。当底层 LLM 强到能把对话压缩成内部表征时，外部 memory 的边际价值下降。所以 memory 评测要**把基线模型锁住**。
 
 ## 9) 常见坑
 
@@ -331,7 +336,7 @@ flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → 
 | **Cognee**         | 同步 `add` + `cognify` + `improve` pipeline 完整；多源数据接入                             | 同步管线阻塞主流程；Neo4j/Kuzu 运维成本高；偏批量文档       |
 | **Zep / Graphiti** | **时间推理一流**（`valid_from/valid_to`）；hybrid 检索；企业级 retention + legal hold      | 多 DB 支持 = 选型负担；时序图查询要走时间过滤；企业版价格高 |
 | **A-MEM**          | 无 schema 自组织（Zettelkasten 风格）；links 自由；知识网络自演化                          | 写时改写历史 = 写入开销大 + 行为不可预测；纯研究型          |
-| **flowcraft**      | 三路（BM25+vector+entity）+ RRF + 时间衰减 + 实体加权，**业界最干净工程做法**；vendor 中性 | 不带图谱；多层结构没作为一等公民暴露                        |
+| **flowcraft**      | 三路（BM25+vector+entity）+ RRF + 时间衰减 + 实体加权；vendor 中性；可选 LLM 精排 | 不带图谱；多层结构没作为一等公民暴露                        |
 | **trpc-agent-go**  | Go 生态；Redis 默认（已有 Redis 栈零迁移）；CRUD 工具调用简单                              | 检索能力基础（关键词/工具调用），无 hybrid；偏 session      |
 
 ### 10.2 横向 cross-cutting 维度
@@ -462,7 +467,7 @@ flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → 
 
 - extract 准确率（端到端问答 F1）经验值约 **70–85%**，**具体依场景波动较大**——长程多跳、跨 session、时间推理场景往往掉到 60% 以下，简单的用户偏好问答可以到 85%+。
 - 没有任何项目能稳定突破 90%——瓶颈是三个解不掉的问题：**LLM 校准差 / 隐式事实系统性漏抽 / 长上下文漂移**。
-- **差异化的关键不在"抽得多准"，在"抽错了怎么补救"**——这是和直觉相反的工程判断。
+- 所以投入顺序应该是：**先建事后纠错通道（面板 / 排序 / 版本回滚），再追抽取准确率**。
 
 ## 14) 框架设计：可插拔的 Save + Recall
 
@@ -477,11 +482,11 @@ flowcraft 把这件事讲得很清楚：BM25、vector、entity 三路并行 → 
 - 3-tier 分层、raw+metadata、懒抽取，三种范式都各有 trade-off
 - 一旦 query 分布变了，最优架构也跟着变
 
-**结论**：**没有任何一种"默认架构"能覆盖所有场景**。通用框架的赌注**不应该押在"哪种范式最好"**，而应该押在**"哪种接口最稳"**。
+**结论**：没有默认架构能覆盖所有场景，所以框架该押接口而不是押范式：stage 可换、scope / trace / raw archive 固定。
 
 ### 14.2 架构形态：两条 Pipeline
 
-```
+```text
 SAVE 方向（消息进来 ──► 写入记忆）：
 [Message] ──► Gate ──► Extract ──► Embed ──► Enrich ──► Store
 
@@ -593,10 +598,78 @@ process(ctx, next) -> result
 4. **一个 escape hatch**——用户能加自定义 stage
 5. **一个真实场景**——跑通一两个典型 query
 
-**这一步通了，框架的 80% 价值就建立了**。剩下的 stage 是"加 feature"。
+这条链路跑通之后，剩下的 stage 都是加 feature。
+
+## 15. 工程落地：flowcraft `backends/memory`
+
+> 这一节是实践层，抄的是开源实现 flowcraft `backends/memory`（MIT）的形状。前 14 节讲该有什么，这里讲真实系统里多出来的那几块。
+
+### 15.1 契约面
+
+七个面，一个都不描述"怎么存"：`ContextProvider`（唯一读入口）、`TurnSink`（轮次结束落库）、`DocumentSink`（非对话内容，别塞进 TurnSink）、`ContextRenderer`（Turn 列表 → prompt 文本，GoTemplate）、`Scope`、`Turn`（带时间与来源）、`Assembly`（按 `impl:` 名字分发）。
+
+两个钩子 `memory.context` / `memory.turn` 由框架编排，渲染层独立于存储层。
+
+`Scope` 是 `RuntimeID + UserID + AgentID` 三分区。分区键是产品决策，不是实现细节：它同时决定隔离、计费和检索范围。
+
+### 15.2 存储
+
+每个已提交轮次是 immutable、幂等的 batch，进一个 append-only Log；文档修订也是不可变事件，KV 里只放最新修订指针。
+
+好处是重放和对账不需要事务魔法，“同一批写两次”不需要去重表。代价是读路径得自己做投影，不能直接查主表。
+
+### 15.3 派生
+
+```text
+commit（轮次/文档修订）
+   ↓ durable watermark 之后的扫描
+抽取 facts → 写进 policy 拥有的 generation
+   ↓ pass 完成才 publish
+publish 后的每个 commit，对每条 projection lane 各喂一次
+```
+
+generation 有主人：一次 pass 写进它拥有的代，发布前读者看不到半成品。`RetireGenerations` 按保留策略整代丢弃，facts、lane 条目、摘要书签、派生进度一起丢，否则下次会从中间恢复。
+
+`fact.quota` 值得单独说：它把批上限变成决策而不是截断。prompt 里写明 cap，每条 fact 带抽取器自己的优先级，超限时保留能独立成立的 claim，而不是砍尾巴。
+
+摘要（L0–L3）按 commit 增量扩展，不重新压实整个窗口；只有本 commit 改动了已被摘要的事实时才回落完整 window。摘要树以 active manifest 作为独立检索 lane 被召回。
+
+resident profile block 是每会话一个有界块（宿主显式行 + 维护 pass 蒸馏行），默认关闭。有界块很容易变成没人维护的第二个 prompt。
+
+### 15.4 触发
+
+写路径把 work record 追加到 scope 级 journal，后台 runner 在一个 poll 内排空并派生被点名的会话，sweep 保底。
+
+journal 丢一条只损失延迟，不损失正确性。把触发器与真相源分开，是这套设计能简化的原因。
+
+### 15.5 维护与遗忘
+
+- maintenance overlay 一个会话一个桶，上下文请求只读候选命名的会话，不是整个 scope。
+- 衰减时钟同时看事件时间和最后召回时间。读路径会给每个真正返回的长时记忆条目记 receipt，从不被用到的记忆衰得更快。
+- `SoftForget(scope, addresses, reason)` 之后，被遗忘的记录对读路径不可达，而不是打个标记等过滤。遗忘还得时间线可读，用户能解释它是怎么忘的。
+- `Repair(ctx, {Scope, Lanes})` 只从规范状态重建指定 lane，不跑 deriver，所以收敛一个词法 lane 是零次模型调用。
+
+忘掉比记住难做。记住只要写对，忘掉要求读路径、摘要、投影三层同时收敛。
+
+### 15.6 诊断与评测
+
+Diagnostics 不是附属品：每个 scope 的派生游标、待办、worker 计数，每个 lane 的 producer version、“重建会不会改变答案”、overlay 状态，还有 `memory.context.requests` / `memory.context.items` 计数器。出问题时先看这几个数，比看日志快。
+
+评测上，换检索后端先跑 BEIR scifact（最小基准），长对话跑 LoCoMo（ingest 阶段对 `NotAvailable` 要重试，否则评测随机挂）。消融也要留：“试过、没用、为什么”写进提交或文档，比如 `revert sum-pool default; record full chunks→docID ablation`。
+
+指标别只看 recall。注入体积、注入位置（前缀还是尾部）同样重要，直接影响 cache 命中和指令遵循。
+
+### 15.7 踩坑
+
+- 分区表 + RLS 要一起测，这类问题只在生产数据量下暴露。
+- 注入内容必须带来源标记，否则模型会把检索内容当指令执行。
+- 一次检索的代价要能在向量道内单独可测，不然优化无从下手。
+- 归档、遗忘类功能要有时间线可读的副作用。
+- 投影类缓存的第一性要求是失效信号，没有 revision 的缓存会把占位描述永久冻结。
 
 ## 相关链接
 
 - `ai/agent.md`（Agent 整体架构与失败模式，memory 是其子模块）
-- `ai/prompt.md`、`ai/prompt_engineering.md`（长上下文、注入防护、记忆在 prompt 中的注入方式）
+- `ai/prompt_engineering.md`（长上下文、注入防护、记忆在 prompt 中的注入方式）
 - `ai/evals.md`（评测驱动开发，memory 系统也要进回归集）
+- `ai/context_engineering.md`（记忆注入的位置与预算；本篇 15.6 的“注入体积/位置”在那里展开）

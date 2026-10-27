@@ -59,14 +59,9 @@ func f() {
 }
 ```
 
-```bash
-$ go build -gcflags="-m -l" main.go
-./main.go:6:11: buf escapes to heap:
-./main.go:6:11:    flow: ~r0 = &buf:
-./main.go:6:11:    from: return buf (interface-conversion) at ./main.go:6:11
-```
+> **关键观察**：这里上堆的不是切片头（`buf` 仍是栈上的 `(ptr, len, cap)`），而是 `append` 扩容时 `growslice` 里分配的那块**底层数组**。`consume` 只做 `_ = s`，不会让 `buf` 逃逸；`-m` 里逃生的是 `growslice` 内部的 `newobject`。
 
-> **关键观察**：`[]int` 本身是值类型，但 `append` 在扩容时会**重新分配底层数组**，而扩容时编译器无法证明新底层数组不会被外部引用（因为 `consume` 接收的是 `[]int` 形参，可能持有引用），所以 `buf` 逃逸。
+自己验证时的读法：`-m` 输出里行号落在 `append` 那一行、且提到 `growslice` / `make` 的，是底层数组；落在 `buf` 变量声明行、带 `moved to heap` 的，才是切片头。
 
 **修法**：
 
@@ -92,12 +87,9 @@ func main() {
 }
 ```
 
-```bash
-$ go build -gcflags="-m" main.go
-./main.go:9:13: t escapes to heap
-```
+> **关键观察**：装箱确实需要在堆上放一份 `T`（`eface.data` 要指向它），但**是否真的上堆取决于调用点**：`call` 能内联时会被去虚拟化，`var t T; call(t)` 实测报 `t does not escape`。要复现逃逸，得让编译器放弃优化——`//go:noinline`，或把 `t` 存进 `[]I`、全局 map 这类会外传的容器。
 
-> **关键观察**：接口装箱时，runtime 需要一个"指向具体值的指针"塞进 `eface.data`；如果原值是值类型（不在堆上），就必须先把它放到堆上再取址。这就是 `interface{}` 参数容易触发逃逸的根因。
+这也是"看到 `-m` 里没有 escapes 不等于没问题"的典型：换个调用点（跨包、放进切片）结论就变了。
 
 **修法**：
 
@@ -123,15 +115,16 @@ func byPtr(s *Big) *Big { return s } // 8B（指针）
 - **大结构体（> 几 KB）**：传指针更快，避免栈拷贝（虽然栈拷贝本身不贵，但栈会扩）。
 - **逃逸视角**：
   - `byVal` 通常**不逃逸**（`s` 在栈上，函数返回时自然销毁）。
-  - `byPtr` **逃逸**（`s` 在堆上，因为指针可能比函数活得久）。
+  - `byPtr` 报 `leaking param: s`——形参被外传，**是否真上堆由调用点决定**。
 
 ```bash
 $ go build -gcflags="-m" main.go
-./main.go:6:18: s does not escape        # byVal
-./main.go:7:19: s escapes to heap        # byPtr（参数被外层引用）
+./main.go:6:18: s does not escape          # byVal
+./main.go:7:20: leaking param: s           # byPtr：形参被外传
+./main.go:12:15: &x escapes to heap        # 调用点决定 x 上堆
 ```
 
-> **反直觉点**："少一次堆分配"并不意味着传值一定更好。要看结构体大小 + 是否会被外部引用。
+> 注意 `leaking param` 不是"被调函数把 s 放到了堆上"——被调函数只是把参数返回出去，是否上堆由调用点决定。所以"少一次堆分配"不等于"传值更好"：要看结构体大小和是否被外部引用。
 
 ## 案例 5：`for range` 变量语义（Go 1.22 之前/之后）
 
@@ -147,32 +140,39 @@ $ go build -gcflags="-m" main.go
 ./main.go:3:14: moved to heap: v
 ```
 
-## 案例 6：性能优化——少一次堆分配的收益
-
-一个真实场景：HTTP 框架里复用大结构体，传入传出都按值。
+## 案例 6：`sync.Pool` 什么时候真的省——只在"用完就还"时
 
 ```go
-// 优化前：每次 request 一个新对象，逃逸到堆
-func handle(req *Request) *Response {
-    r := &Response{} // 逃逸
-    r.Status = 200
-    return r
+// 优化前：每次请求新分配一块 64KB 缓冲
+func encode(w io.Writer, v any) error {
+    buf := make([]byte, 0, 64<<10) // 逃逸到堆，每次请求一块
+    buf, err := appendJSON(buf, v)
+    if err != nil { return err }
+    _, err = w.Write(buf)
+    return err
 }
 
-// 优化后：sync.Pool 复用
-var pool = sync.Pool{
-    New: func() any { return &Response{} },
-}
+// 优化后：池化，用完必须 Put 回去，且不把对象交出去
+var pool = sync.Pool{New: func() any { b := make([]byte, 0, 64<<10); return &b }}
 
-func handle(req *Request) *Response {
-    r := pool.Get().(*Response)
-    r.Reset()
-    r.Status = 200
-    return r
+func encode(w io.Writer, v any) error {
+    bp := pool.Get().(*[]byte)
+    defer pool.Put(bp)                 // 必须在同一函数里归还
+    buf := (*bp)[:0]
+    buf, err := appendJSON(buf, v)
+    if err != nil { return err }
+    _, err = w.Write(buf)
+    *bp = buf[:0]                      // 归还时重置长度，保留容量
+    return err
 }
 ```
 
-`sync.Pool` 把"频繁创建/销毁的临时对象"复用掉，对**高 QPS 服务**的 GC 压力降低非常明显（参考 Go 标准库 `fmt` 包用 `pp` 池化 buffer 的做法）。
+两个边界条件决定它是否真省钱：
+
+- **必须归还**：把池里拿到的对象 `return` 给调用方，就再也收不回来了——池子只会一直 `New`。
+- **必须同生命周期**：`defer Put` 与 `Get` 在一个函数里。跨 goroutine 传出去就必须换成"所有权转移 + 显式归还"的协议。
+
+`fmt` 包里的 `ppFree`（`sync.Pool` 池化 printer）就是这个形状：小对象、短生命周期、用完即还。
 
 > **副作用警告**：
 >

@@ -5,7 +5,7 @@
 
 ## TL;DR
 
-- **多 agent 不是"为多而多"**。它的真正价值是**把单 agent 撑不下的能力维度拆开**：上下文窗口、工具数量、专精深度、可调试性；一个单 agent + 工具能解决时，不要拆。
+- **多 agent 不是"为多而多"**。它的价值在于把单 agent 撑不下的能力维度拆开：上下文窗口、工具数量、专精深度、可调试性；一个单 agent + 工具能解决时，不要拆。
 - 主流编排只有 **4 大基本模式**：**Chain（链）/ Parallel（并行）/ Cycle（循环）/ Graph（DAG）**；crew / team / swarm / network 几乎都是这 4 类的嵌套 / 路由 / 组合。先问"任务的图是什么形状"再选框架。
 - **State 管理有 3 种思路**：共享全局 state（LangGraph）、消息总线（AutoGen group chat）、显式传递（smolagents / Swarm）。前者易调试、中者贴近人类会议、后者易复用。
 - **Agent-as-Tool**（把 agent 当另一个 agent 的"工具"调用）在多数工程场景里比"造超复杂图"更可控——它复用工具的 spec / 错误处理 / 鉴权。
@@ -30,7 +30,7 @@
 - **可观测性**：每步归属于哪个 agent、传入了什么 state、为什么失败，比"一锅粥的 LLM 链"好定位得多。
 - **可复用性 / 失败隔离**：写一次"代码 review agent"在多个上层工作流里复用；子 agent 抽风不会污染主流程。
 
-> **反直觉点**：拆多 agent **不一定要增加总成本**。每个子 agent 上下文更短、prompt 更专精，单次成本可能更低；总成本由"调用次数 × 单价"决定，拆得好能反而省。
+> 拆多 agent **不一定要增加总成本**。每个子 agent 上下文更短、prompt 更专精，单次成本可能更低；总成本由"调用次数 × 单价"决定，拆得好能反而省。
 
 ### 1.3 不要拆的场景
 
@@ -157,7 +157,7 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 
 ## 7. Inter-agent 协议（MCP / A2A / AG-UI 三件套）
 
-2024-2025 出现的"三大协议"正在分层解决多 agent 系统的不同边界问题。**互补**而非竞争。
+2024 年底开始分层出现的三个协议，到 2025 年基本定型，分别解决多 agent 系统的不同边界问题。**互补**而非竞争。
 
 | 协议      | 解决什么                   | 一句话定位                         |
 | :-------- | :------------------------- | :--------------------------------- |
@@ -172,12 +172,14 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 
 ### 7.2 A2A（Agent-to-Agent）
 
-"agent ↔ agent" 互操作协议，强调"as agents, not just as tools"，由 Google 推动并被多家厂商接纳。关键概念：
+"agent ↔ agent" 互操作协议，强调"as agents, not just as tools"。关键概念：
 
-- **Agent Card**：描述 agent 能力 / 认证 / 端点的"名片"，用于发现（Agent Discovery）。
+- **Agent Card**：描述 agent 能力 / 认证 / 端点的"名片"，用于发现（Agent Discovery）。v1.0 起支持签名 Agent Card，用密码学做身份验证。
 - **Task Lifecycle**：一个 task 的状态机（submitted → working → input-required / completed / failed / canceled）。
-- **Transport**：JSON-RPC 2.0 over HTTP(S)，支持同步、stream（SSE）、异步 push notification。
+- **Transport**：默认 JSON-RPC 2.0 over HTTP(S)，支持同步、stream（SSE）、异步 push notification；v1.0 起改为多协议绑定（multi-protocol bindings）+ 版本协商。
 - **Opacity**：agent 的内部状态对调用方不可见，只暴露输入 / 输出——让"跨厂商 / 跨语言 / 跨栈"协作成为可能。
+
+> 归属已经变了：Google 2025-04 发布，**2025-06-23 捐给 Linux Foundation 立项**（TSC 含 AWS / Cisco / Google / IBM / Microsoft / Salesforce / SAP / ServiceNow）；2026-04 官方口径是 150+ 组织支持、SDK 覆盖 Python / JS / Java / Go / .NET。与 MCP 的分工也没变：MCP 接工具，A2A 接其他 agent。
 
 ### 7.3 AG-UI（Agent-User Interaction Protocol）
 
@@ -195,7 +197,7 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 > 一个工程上很有用的反直觉：把 agent B **当 tool** 暴露给 agent A，往往比"造一个超复杂图"更可控。
 
 - **形态**：在 agent A 的视角里，B 就是一个普通 tool，spec 是 B 的输入 schema；调用 B 得到 B 的最终输出。
-- **代表**：flowcraft `sdk/kanban`（"Multi-agent collaboration without a graph DSL: exposes any agent as a tool to any other agent"）、trpc-agent-go `agenttool` 例子、smolagents `managed_agent`。
+- **代表**：flowcraft `core/delegation/kanban`（"Multi-agent collaboration without a graph DSL: exposes any agent as a tool to any other agent"）、trpc-agent-go `agenttool` 例子、smolagents `managed_agent`。
 - **优势**：复用工具的 spec / 错误处理 / 鉴权 / 限流；边界清晰，B 是 A 的"外部依赖"，可独立升级 / 替换 / 灰度；评测简单。
 - **劣势**：A 看不到 B 的"中间过程"，需要 B 自己暴露 trace；串行依赖——B 必须完成才能回到 A，不能像 graph 那样自然并行。
 
@@ -300,7 +302,7 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 - [`agent.md`](agent.md)：单 agent 闭环、感知 / 规划 / 工具 / 评估的工程抓手
 - [`tools.md`](tools.md)：Tool Use / Function Calling / MCP 的细节与工具 spec 设计
 - [`rag.md`](rag.md)：检索增强生成（agent 的"知识来源"侧）
-- [`prompt.md`](prompt.md) / [`prompt_engineering.md`](prompt_engineering.md)：多 agent 的"指令"和"模式"基础
+- [`prompt_engineering.md`](prompt_engineering.md)：多 agent 的"指令"和"模式"基础
 - [`evals.md`](evals.md)：评测体系；trajectory / outcome / 资源指标的关系
 - [`harness/`](harness/)：运行时层（checkpoint 持久化 / retry / HITL 等待 / 进程生命周期的工程实现）
 
