@@ -7,12 +7,17 @@
 # ── Root documentation ──
 !ai
 !ai/**
-!cxx
-!cxx/**
 !go/
 !go/**
 !os/
 !os/**
+!rust
+!rust/**
+
+# ── Tooling ──
+!Makefile
+!scripts
+!scripts/**
 
 # ── License ──
 !LICENSE

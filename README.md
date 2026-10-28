@@ -1,8 +1,8 @@
 # l1ang70's field-notes
 
-A personal knowledge base in Markdown — short, opinionated notes written for quick recall, not as tutorials. Topics: C++, Go, OS internals, AI engineering.
+A personal knowledge base in Markdown — short, opinionated notes written for quick recall, not as tutorials. Topics: Go, Rust, OS internals, AI engineering.
 
-**51 files · 4 areas · last touched 2026-06-08.**
+**62 files · 4 areas · last touched 2026-10-27.**
 
 ## What this is (and what it isn't)
 
@@ -16,28 +16,18 @@ A personal knowledge base in Markdown — short, opinionated notes written for q
 
 ## Index
 
-### C++ (13 files)
+### Go (22 files)
 
-Keywords, language basics, memory/ownership/RAII, compiling, oop, templates/STL, multithreading, performance, sanitizers/UB/ODR, modern (c++11/14/17/20).
+Architecture (layering, contract + `impl:` registry, craft ABI, plugin host), engineering (conventions, testing layout, releases, observability, a desktop-agent performance record), build & packaging (dev/release, embed, cross-platform), concurrency (channels, patterns, sync_map, scenarios), language (defer/panic, escape analysis, interface/reflection), runtime (gc, scheduler, allocator, write barrier, netpoll, pprof).
 
-- `cxx/keywords.md` — keyword reference
-- `cxx/language_features.md` — language basics
-- `cxx/memory.md` — lifetime, ownership, RAII
-- `cxx/compiling.md` — compiling & linking
-- `cxx/oop.md` — object-oriented
-- `cxx/template_stl.md` — templates & STL
-- `cxx/multi_thread.md` — multithreading
-- `cxx/performance.md` — performance analysis (perf / benchmark)
-- `cxx/engineering_practice.md` — sanitizers, UB, ODR
-- `cxx/modern/c++11.md` — C++11
-- `cxx/modern/c++14.md` — C++14
-- `cxx/modern/c++17.md` — C++17
-- `cxx/modern/c++20.md` — C++20
-
-### Go (13 files)
-
-Concurrency (channels, patterns, sync_map, scenarios), language (defer/panic, escape analysis, interface/reflection), runtime (gc, scheduler, allocator, write barrier, netpoll).
-
+- `go/architecture/layering.md` — four layers, contract + registry + assembly resource
+- `go/architecture/craft_abi.md` — platform/sidecar ABI, grants and leases, plugin host
+- `go/engineering/conventions.md` — errdefs, optional interfaces, panic boundaries, double-tree
+- `go/engineering/testing.md` — unit/contract/e2e split, platform lanes, fuzz/soak, property gates
+- `go/engineering/observability.md` — reason-coded logs, single-source metrics, RUM, trace to dataset
+- `go/engineering/release.md` — multi-module versioning, changesets, release gate, desktop signing
+- `go/engineering/optimization.md` — desktop agent performance work: baseline, allocation, bounds, serialization, caching
+- `go/build/packaging.md` — dev vs release flags, version injection, embed, cross-platform packaging
 - `go/concurrency/channels.md` — channel semantics
 - `go/concurrency/concurrency_patterns.md` — common patterns
 - `go/concurrency/concurrency_scenarios_templates.md` — scenarios & templates
@@ -51,34 +41,55 @@ Concurrency (channels, patterns, sync_map, scenarios), language (defer/panic, es
 - `go/runtime/scheduler.md` — goroutine scheduler
 - `go/runtime/write_barrier.md` — write barrier
 - `go/runtime/netpoll.md` — netpoll networking
+- `go/runtime/pprof.md` — reading heap/goroutine/block profiles, paired sampling, misreads
 
-### OS (9 files)
+### Rust (13 files)
 
-Process/scheduling, memory, concurrency primitives, io, filesystem, payload formats, virt/containers, network stack, scheduler comparison (CFS / UMS / ULE / GMP / tokio).
+Language basics (ownership, traits, interior mutability, Option/Result), memory layout and allocation, workspace shape (crate vs module boundaries, features, generated wire code), the unsafe boundary (one crate, `forbid` elsewhere), error taxonomy across the Go/Rust two-tree split, bounded containers, the async/blocking boundary, tokio signalling and generation swaps, and the platform-layer test layout.
+
+- `rust/language/ownership.md` — move vs borrow, `&mut` as exclusivity, lifetimes only where needed, `Drop` as rollback
+- `rust/language/traits.md` — generics vs `dyn`, monomorphization, associated types, orphan rule
+- `rust/language/interior_mutability.md` — Cell/RefCell/OnceLock/atomics, `Send`/`Sync`, which lock
+- `rust/language/option_result.md` — what `?` desugars to, combinators, where `anyhow` stops
+- `rust/runtime/memory.md` — where values live, `size_of` table, Vec/Arc costs, drop order, zero-cost boundaries
+- `rust/runtime/allocator.md` — `Layout` / `GlobalAlloc` contract, swapping the global allocator, arena pitfalls
+- `rust/architecture/workspace.md` — two packages, one-way module graph pinned by a test, feature layering, generated code
+- `rust/architecture/unsafe_boundary.md` — `forbid(unsafe_code)` and the single crate allowed to break it
+- `rust/engineering/errors.md` — 14 categories aligned with Go, why a gRPC status code is lossy on the wire
+- `rust/engineering/bounds.md` — bound + reclaim + observe, prune-by-expiry, the container that has no bound yet
+- `rust/engineering/async_blocking.md` — async trait / sync implementation, `spawn_blocking`, the lint gate
+- `rust/engineering/testing.md` — reusable conformance suite, structural layering test, `cfg`-scoped platform tests
+- `rust/runtime/tokio.md` — `watch` vs `broadcast`, explicit lag events, generation swap and drain, which mutex
+
+### OS (10 files)
+
+Process/scheduling, memory, concurrency primitives, io, filesystem, payload formats, virt/containers, network stack, scheduler comparison (CFS / UMS / ULE / GMP / tokio), and sandbox/isolation mechanisms (bwrap / seatbelt / AppContainer / WFP / cgroups).
 
 - `os/memory.md` — memory management
 - `os/process.md` — process & scheduling
 - `os/concurrency.md` — concurrency primitives
 - `os/filesystem.md` — filesystem
 - `os/io.md` — I/O
-- `os/payload.md` — payload formats
+- `os/payload.md` — system load and observability metrics (CPU / memory / disk / network / QPS thresholds and tooling)
 - `os/virtualization.md` — virtualization / containers
 - `os/network_stack.md` — network stack
 - `os/scheduler_comparison.md` — scheduler comparison (CFS / UMS / ULE / GMP / tokio)
+- `os/sandbox.md` — sandbox & process isolation mechanisms (bwrap / seatbelt / AppContainer / WFP, pty, cgroups, deny reasons)
 
-### AI (16 files)
+### AI (17 files)
 
-Agent fundamentals, prompt (design/engineering), evals, memory systems, RAG, tools/function calling/MCP, multi-agent, context engineering, and a new `harness/` subdirectory for the runtime/operational layer (sandbox, control loop, retry, state, observability, I/O, lifecycle).
+Agent fundamentals, prompt engineering (skeleton / patterns / anti-patterns / injection defense), evals, memory systems, RAG, tools/function calling/MCP, multi-agent, context engineering, self-hosted inference serving, speech/audio pipelines, and a `harness/` subdirectory for the runtime/operational layer (sandbox, control loop, retry, state, observability, I/O, lifecycle).
 
 - `ai/agent.md` — agent fundamentals
-- `ai/prompt.md` — prompt design
-- `ai/prompt_engineering.md` — prompt engineering patterns & anti-patterns
+- `ai/prompt_engineering.md` — prompt skeleton, patterns, anti-patterns, injection defense (the old `prompt.md` was merged in)
 - `ai/evals.md` — evaluation methodology
 - `ai/memory.md` — memory systems (mem0, Letta, LangMem, Cognee, Zep, …)
 - `ai/rag.md` — RAG / knowledge retrieval
 - `ai/tools.md` — tool use / function calling / MCP
 - `ai/multi_agent.md` — multi-agent orchestration
 - `ai/context_engineering.md` — context engineering
+- `ai/inference_serving.md` — self-hosted inference serving: capacity ledger, startup self-checks, resource sync, CI boundary
+- `ai/speech_audio.md` — realtime voice chain (RTC) and offline audio pipelines (VAD / diarization / ASR / voiceprint / DER)
 - `ai/harness/` — runtime/operational layer: sandbox, control loop, resilience, state, observability, I/O, lifecycle
 
 **AI harness (runtime layer, 7 files)**:

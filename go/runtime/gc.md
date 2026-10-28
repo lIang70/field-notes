@@ -23,9 +23,10 @@ Go 使用并发, 三色标记清除的垃圾回收器.
 
 ### 完整的周期
 
-- 标记准备 (Mark Termination) - STW
+- 清扫终止 (Sweep Termination) - STW
+- 标记准备 (Mark Setup) - STW：开写屏障、扫描栈根
 - 并发标记 (Concurrent Marking)
-- 标记结束 (Mark Termination) - STW
+- 标记终止 (Mark Termination) - STW
 - 并发清除 (Concurrent Sweeping)
 
 ### 写屏障
@@ -33,18 +34,17 @@ Go 使用并发, 三色标记清除的垃圾回收器.
 用于在并发标记过程中, 确保新创建的引用不会丢失, 防止存活的对象被回收
 
 ```go
-// 伪代码：写屏障逻辑
-func writePointer(dst, src *Object) {
-    // 1. 执行实际的指针赋值
-    *dst = src
-
-    // 2. 如果正在标记阶段，且 src 是黑色，dst 是白色
-    // 则将 dst 标记为灰色（插入标记队列）
-    if gcPhase == marking && isBlack(src) && isWhite(dst) {
-        shade(dst) // 标记为灰色
+// 伪代码：混合写屏障（Go 1.8+）——先着色，再赋值
+func writePointer(slot **Object, ptr *Object) {
+    if gcPhase == marking {
+        shade(*slot) // 槽位里的旧值：可能是删边，必须保活
+        shade(ptr)   // 新值：可能是插入边，必须保活
     }
+    *slot = ptr
 }
 ```
+
+> 三个容易写反的地方：判据是**槽位所属对象为黑且被引用对象为白**（不是拿新值当黑）；shade 的除了新值还有**旧值**（删边保护）；屏障必须在**赋值之前**执行。
 
 ## GC 触发机制
 

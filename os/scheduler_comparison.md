@@ -97,7 +97,7 @@ Linux CFS 内部细节看 [`process.md`](process.md) 的 8.2 节；Go GMP 内部
 
 - **调度对象**：**async task**（`Future` 驱动的状态机），初始栈几乎为 0（task 是堆上对象）。
 - **两种 runtime**：
-  - **单线程 (`current_thread`)**：所有 task 在一个 OS 线程上跑；调度器是个 work-stealing + 单线程队列。
+  - **单线程 (`current_thread`)**：所有 task 在一个 OS 线程上顺序 poll 一个本地队列；没有 work-stealing，也没有跨线程同步。
     - 优点：极低开销、cache 友好、**无锁**。
     - 缺点：不能用多核；任何一个阻塞操作都会卡住所有 task。
   - **多线程 (`multi_thread`)**：每 worker 线程一个 local queue + 全局队列 + work-stealing；**与 Go GMP 思路高度类似**。
@@ -117,7 +117,7 @@ Linux CFS 内部细节看 [`process.md`](process.md) 的 8.2 节；Go GMP 内部
 | 调度位置      | 内核态                                        | 用户态 (调度权在 app) | 内核态                | 用户态 (runtime)                | 用户态 (runtime)        |
 | 调度模型      | 抢占                                          | 协作 (fiber 层)       | 抢占                  | 抢占 (1.14+ 信号)               | 协作 (`.await` 让出)    |
 | 优先级/权重   | nice + 权重表                                 | 无 (应用自定义)       | `pri` + 交互性加成    | 无全局优先级 (优先级队列在内部) | 无 (调度器视角)         |
-| 公平性        | CFS 名称由来：完全公平                        | 由应用决定            | 偏向交互 + cache 局部 | 抢占 + work stealing            | 抢占 + work stealing    |
+| 公平性        | CFS 名称由来：完全公平                        | 由应用决定            | 偏向交互 + cache 局部 | 抢占 + work stealing            | 协作 + work stealing（无抢占） |
 | 组调度 / 配额 | cgroup v1/v2 (CPU、memory、pids)              | 进程/JOB 对象         | jail + cpuset         | 无 (GOMAXPROCS 总数)            | 无                      |
 | 亲和性 / NUMA | 完整支持 (sched_setaffinity / NUMA balancing) | 由 app + 线程池       | 显式 NUMA 感知        | 弱 (需手动控制)                 | 弱 (需手动控制)         |
 | 实时性        | `SCHED_FIFO/RR/DEADLINE` (旁路 CFS)           | 不主打实时            | `RT priority`         | 不主打实时                      | 不主打实时              |
@@ -163,7 +163,7 @@ Linux CFS 内部细节看 [`process.md`](process.md) 的 8.2 节；Go GMP 内部
 - **eBPF 用于调度观测**：`bpftool` / `sched_ext` (Linux 6.12+) 允许用 BPF 程序**替换/扩展** CFS 调度策略——调度器可编程化。
 - **节能与拓扑感知**：手机/笔记本调度器（EAS）把“能耗/性能”放进了调度目标；服务器调度器把“cache locality / NUMA”放进去。
 - **AI 工作负载的反向冲击**：GPU 调度与 CPU 调度的协同（GPU 上下文切换成本远高于 CPU）正在重塑“任务”的定义。
-- **可抢占协程**：Rust 的 `async` 默认非抢占；社区在讨论显式抢占点（`select_biased!`、loom 等），但**刻意**不学 Go 的全局信号抢占。
+- **可抢占协程**：Rust 的 `async` 默认非抢占；社区讨论的方向是显式让出点（`yield_now`、按预算每 N 次 poll 主动让出），而不是 Go 那种全局信号抢占。
 
 ## 常见误区
 

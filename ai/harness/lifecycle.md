@@ -34,7 +34,7 @@ start ─> [running] ─pause─> [paused] ─resume─> [running]
 - **terminated**: 显式终止或超时回收,执行 cleanup
 - **cleanup**: 释放子进程 / 文件锁 / 临时目录 / 网络连接(见 §7)
 
-> **反直觉点**:很多团队把"paused"和"terminated"混为一谈——一个 session 暂停 30 分钟后再恢复,应不应该保留中间 LLM 的 context、临时文件、token 配额?答案**取决于业务**,但必须显式选;模糊处理会导致"用户重连时 GPU 显存爆"或"恢复后配额已经超"。
+> 很多团队把"paused"和"terminated"混为一谈——一个 session 暂停 30 分钟后再恢复,应不应该保留中间 LLM 的 context、临时文件、token 配额?答案**取决于业务**,但必须显式选;模糊处理会导致"用户重连时 GPU 显存爆"或"恢复后配额已经超"。
 
 ## 2. 子 agent 的隔离:进程级 vs 线程级 vs 协程级
 
@@ -67,17 +67,17 @@ go func() {                          // L3: wait + 防止僵尸
 // 收到 SIGTERM 时的处理见 §6
 ```
 
-`exec.CommandContext` 是 Go 里"取消会自动 SIGTERM 然后 SIGKILL"的便捷封装;`cmd.Wait()` 必须在另一 goroutine 跑,否则 SIGTERM 之后父进程没法 join。
+`exec.CommandContext` 在 ctx 取消时直接 `Process.Kill()`（SIGKILL），**没有 SIGTERM 宽限**;要优雅终止得自己在 signal handler 里接管。另外 `cmd.Wait()` 必须在另一 goroutine 跑,否则父进程没法 join。
 
 ## 3. IPC: harness 怎么承载 MCP 与 A2A
 
 > **协议本身是数据格式;承载协议的是 harness 进程**。MCP 的 host / client 是 harness 起的;A2A 的服务端进程是 harness 跑的;agent 代码只看到 `call_tool(...)` / `send_task(...)` 的客户端 API。
 
-- **MCP(agent ↔ tool / resource)**:harness 启动 MCP client,与 tool server 走 stdio(JSON-RPC)或 HTTP+SSE;`tools/list` / `resources/read` 由 harness 缓存并翻译给模型。详见 [`../tools.md`](../tools.md) 与 [`../multi_agent.md` §7.1](../multi_agent.md)。
+- **MCP(agent ↔ tool / resource)**:harness 启动 MCP client,与 tool server 走 stdio 或 **streamable HTTP**（HTTP+SSE 是 2025-03 之前的旧传输）;数据层是 JSON-RPC 2.0。`tools/list` / `resources/read` 由 harness 缓存并翻译给模型。详见 [`../tools.md`](../tools.md) 与 [`../multi_agent.md` §7.1](../multi_agent.md)。
 - **A2A(agent ↔ agent)**:每个 agent 对外暴露 A2A 端点(也是 harness 起的 HTTP server),用 Agent Card(`/.well-known/agent.json`)做发现,task state machine 做生命周期。详见 [`../multi_agent.md` §7.2](../multi_agent.md)。
 - **AG-UI(agent ↔ UI)**:harness 暴露 SSE / WebSocket,前端按约 16 种事件类型订阅;transport 无关。
 
-> **反直觉点**:MCP / A2A 的"服务端"通常**不是 agent 本身**,而是 harness 起的网关进程——它负责鉴权、限流、转换、流式回包。agent 只是被调用时算一下答案。这种"agent + harness 进程"的分层,是把 agent 从"玩具"变成"服务"的关键。
+> MCP / A2A 的"服务端"通常**不是 agent 本身**,而是 harness 起的网关进程——它负责鉴权、限流、转换、流式回包。agent 只是被调用时算一下答案。这种"agent + harness 进程"的分层,是把 agent 从"玩具"变成"服务"的关键。
 
 ## 4. 长时任务:不要让 HTTP 请求持有 session
 
@@ -150,7 +150,7 @@ SIGTERM 到达
 7. os.Exit(0)
 ```
 
-> **关键反直觉**:`defer` 不会在 `SIGTERM` 时执行——Go 进程默认 `os.Exit()` 不会跑 `defer`。必须**显式**在 signal handler 里走完上面 1-7 步;最常见的 bug 就是"重启服务后磁盘上多了一堆 `.lock` 文件 / 临时目录"。
+> `defer` 不会在 `SIGTERM` 时执行——Go 进程默认 `os.Exit()` 不会跑 `defer`。必须**显式**在 signal handler 里走完上面 1-7 步;最常见的 bug 就是"重启服务后磁盘上多了一堆 `.lock` 文件 / 临时目录"。
 
 ## 7. 资源回收:临时文件 / 子进程 / 网络连接 / 文件锁
 
@@ -159,7 +159,7 @@ SIGTERM 到达
 | **临时文件** | `/tmp` 越攒越多、磁盘满      | `TempDir` + `defer RemoveAll`,或 `mkstemp` 走 `Close+Unlink`   |
 | **子进程**   | 父退 child 还在跑(zombie)    | 父必须 `Wait()`;**进程组** + `Setpgid: true` 防止 fork 炸弹    |
 | **网络连接** | `keep-alive` 池未关、池污染  | `http.Server.Shutdown(ctx)` 优雅关;idle pool 设上限            |
-| **文件锁**   | 进程崩了 `flock` 不释放      | 用 `fcntl(F_OFD_SETLK)`(内核级 close-on-exec)而非进程 advisory |
+| **文件锁**   | lockfile 残留、NFS 锁语义不同 | 进程退出内核会释放 `flock`/OFD 锁;坑在残留文件与 NFS |
 | **GPU 显存** | 多 session 共用一模型,显存爆 | 按 session 隔离 `CUDA_VISIBLE_DEVICES`;用 vLLM / TGI 池化      |
 
 > **子进程泄漏是 harness 第一杀手**。Go 的 `os/exec` 默认不 `Setpgid`——父崩了子进程会被 init 接管,继续跑、继续占文件、继续扣费。**生产环境的子 agent 必须进程组化 + 双 signal + Wait 回收**。
@@ -185,7 +185,7 @@ A2A 协议把"跨进程的 agent 任务"标准化成一套状态机。**这套�
 
 详见 [`../multi_agent.md` §7.2](../multi_agent.md)。
 
-## 9. 反直觉点 / Common pitfalls
+## 9. 常见坑
 
 > 这一节全是"我见过 / 听过的生产 bug"。
 

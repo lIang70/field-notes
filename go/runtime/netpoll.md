@@ -6,7 +6,7 @@ Go 网络 I/O 的核心思路：**用户态看起来是同步阻塞**（`conn.Re
 
 - **同步语义 + 非阻塞实现**：业务代码写 `Read`/`Write` 像是阻塞调用；运行时把它们改写成"非阻塞 + 等待 netpoll 事件"的组合。
 - **抽象层**：`runtime/netpoll`（源码 `src/runtime/netpoll.go`）屏蔽了 epoll / kqueue / IOCP 的差异。
-- **平台后端**：Linux 用 epoll（LT 模式），BSD/macOS 用 kqueue，Windows 用 IOCP（完成端口，思路不同）。
+- **平台后端**：Linux 用 epoll + `EPOLLET`（边缘触发，只在状态变化时通知，唤醒后需重新 arm），BSD/macOS 用 kqueue，Windows 用 IOCP（完成端口，思路不同）。
 - **与调度器协同**：G 阻塞在 I/O 上时会被 `gopark`；事件就绪后由 `netpoll` 调用 `goready` 重新入队。
 - **代价**：每个连接一个 goroutine 并不"零成本"——栈、fd、调度都有开销，需要限并发。
 
@@ -51,7 +51,7 @@ netpoll 在每个 OS 下有不同的实现（`netpoll_epoll.go` / `netpoll_kqueu
 
 | 平台          | 机制     | 思路                                                     |
 | :------------ | :------- | :------------------------------------------------------- |
-| **Linux**     | `epoll`  | 事件就绪通知（reactor 风格），LT 模式                    |
+| **Linux**     | `epoll`  | 事件就绪通知（reactor 风格），`EPOLLET` 边缘触发 + 唤醒后重新 arm |
 | **BSD/macOS** | `kqueue` | 通用事件接口，与 epoll 思路接近                          |
 | **Windows**   | IOCP     | **完成端口**：发起 overlapped I/O 后由内核在"完成"时通知 |
 
@@ -103,7 +103,7 @@ type pollDesc struct {
 ### 3. `pollCache`（`pollDesc` 复用）
 
 - 频繁创建/销毁连接 = 频繁创建/销毁 `pollDesc`。
-- `internal/poll` 用一个 per-P 的 `pollCache` 做无锁复用，避免每次 `accept` 都走 `newpollDesc` → `mallocgc`。
+- `internal/poll` 用一个 per-P 的 `pollCache`（里面一把基本无争用的 mutex）复用 `pollDesc` 链表，避免每次 `accept` 都走 `newpollDesc` → `mallocgc`。
 - 这是"一连接一 goroutine"模型下少被提到但很重要的优化点。
 
 ### 4. `netpollblock` / `goready`（park / ready 协同）
@@ -171,13 +171,13 @@ func netpollblock(pd *pollDesc, mode int) {
 
 ## fd 耗尽 / 内存膨胀：goroutine 不是免费的
 
-> **反直觉点**：Go 写并发代码"很容易"，但 1 万个慢连接 = 1 万个 goroutine + 1 万个 fd + 1 万份栈内存。不要以为 goroutine 轻到可以无限开。
+> Go 写并发代码"很容易"，但 1 万个慢连接 = 1 万个 goroutine + 1 万个 fd + 1 万份栈内存。不要以为 goroutine 轻到可以无限开。
 
 实际工程里要关注：
 
 - **fd 上限**：每个连接占一个 fd。受限于 `ulimit -n`、进程级 `RLIMIT_NOFILE`、以及 Linux 的 `fs.nr_open` / `fs.file-max`。业务量大时务必调高。
 - **goroutine 数量**：本身不是问题，问题是每个 goroutine 持有的栈（虽然 2KB 起，逃逸/扩容后会涨）和它对应的 `pollDesc` / 等待队列开销。
-- **慢连接/慢请求**：恶意或异常的客户端不读/不写，会让 goroutine 长期 `_Gwaiting` 堆积。`net/http.Transport` 有 `MaxIdleConns` / `ReadTimeout` / `WriteTimeout` 等参数防御。
+- **慢连接/慢请求**：恶意或异常的客户端不读/不写，会让 goroutine 长期 `_Gwaiting` 堆积。服务端用 `http.Server` 的 `ReadTimeout` / `WriteTimeout`；客户端 `http.Transport` 侧是 `DialContext` 超时 / `ResponseHeaderTimeout` / `IdleConnTimeout`。
 - **限并发**：即便用 goroutine 也要"限并发"，见 [`../concurrency/concurrency_patterns.md`](../concurrency/concurrency_patterns.md) 的 semaphore / worker pool。
 
 > 调优建议：用 `lsof -p <pid> | wc -l` 看 fd 数；用 `pprof` 的 goroutine profile 看实际堆积的 G。

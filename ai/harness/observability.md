@@ -34,8 +34,8 @@
   },
   "model": {
     "provider": "anthropic",
-    "name": "claude-sonnet-4-5",
-    "version": "20250929"
+    "name": "claude-sonnet-5-5",
+    "family": "sonnet"
   },
   "tokens": { "in": 12480, "cache_write": 0, "cache_read": 8192, "out": 423 },
   "latency_ms": 1830,
@@ -63,7 +63,7 @@
 - `cost_usd`：**算好后落库**，不要事后 join model 单价表（单价会变，事后算的数对不上账）。
 - `latency_ms` 含**整段 wall-clock**（含网络、queue、tool 调用）；`stop_reason` 必填——`max_tokens` / `safety` / `end_turn` 各自的失败模式完全不同。
 
-> **反直觉**：`stop_reason` = `max_tokens` 几乎一定是上游问题（prompt 写太宽 / output schema 没限制 / 模型跑偏没收敛）——这类失败用 retry 治不好。
+> `stop_reason` = `max_tokens` 几乎一定是上游问题（prompt 写太宽 / output schema 没限制 / 模型跑偏没收敛）——这类失败用 retry 治不好。
 
 ## 2. Trace 协议：选什么、怎么传
 
@@ -74,7 +74,7 @@
 | **OpenTelemetry**        | 通用 trace 协议（行业标准）    | 中大型系统、与现有 APM 共用   |
 | **LangSmith**            | LangChain 生态 LLM-native      | LangChain 系项目、快速验证    |
 | **Langfuse**             | 开源 LLM-native trace + eval   | 自托管 / 不想被 vendor 锁     |
-| **Phoenix (Braintrust)** | trace + eval + experiment 平台 | 商业项目、需要 eval 闭环      |
+| **Phoenix (Arize)**      | trace + eval + experiment 平台 | 商业项目、需要 eval 闭环      |
 | **OpenLLMetry**          | OTel 的 LLM 扩展               | 已有 OTel 基建，想加 LLM 语义 |
 
 > **选型小抄**：已有 OTel / Datadog / Honeycomb 基建 → OpenTelemetry + OpenLLMetry；纯 LangChain 想快 → LangSmith；想自托管 + 留数据出口 → Langfuse。**避免 vendor lock**——选型时确认"能不能把我的 trace 导出成标准格式"。
@@ -99,7 +99,7 @@
 
 **关键工程动作**：sub-agent 启动时显式接 `parent_span_id`（不要让 sub-agent 自己"开新 trace"）；tool 调用把 `trace_id` 透传给下游（MCP server / 远程 API），下游报错时把 trace_id 带回来；prompt / tool input 必须**带 `trace_id` 进入模型**（写在 system message 末尾的隐藏前缀）；跨 turn 时把上一 turn 的 last_span_id 写到下一 turn 的 parent——session 维度上 trace 是一棵树，不是孤立点。
 
-> **反直觉**：**很多 agent 框架的"自动 trace"其实是"自动 log"**——它记录了"调了一次 LLM"，但没有"这次调用是上一次调用的孩子"的语义。要在框架 hook 里**手动建 span 并设 parent**，不能信框架默认行为。
+> **很多 agent 框架的"自动 trace"其实是"自动 log"**——它记录了"调了一次 LLM"，但没有"这次调用是上一次调用的孩子"的语义。要在框架 hook 里**手动建 span 并设 parent**，不能信框架默认行为。
 
 ## 3. Token / Cost 追踪
 
@@ -115,7 +115,7 @@
 
 ### 3.3 每步 cost 上报
 
-- 每个 span 落库时带 `cost_usd`；`cost_usd = (tokens.in - tokens.cache_read) * base_input_price + tokens.cache_write * cache_write_price + tokens.cache_read * cache_read_price + tokens.out * output_price`。
+- 每个 span 落库时带 `cost_usd`。先约定口径：`tokens.in` 是**未命中缓存的新输入**，`cache_write` / `cache_read` 单列；于是 `cost_usd = tokens.in * base_input_price + tokens.cache_write * write_price + tokens.cache_read * read_price + tokens.out * output_price`。如果 `tokens.in` 已含缓存 token，就得先减掉再乘，别两种读法混用。
 - **分项报**（input / cache / output 三列），方便定位"成本突然爆了"是哪一项。
 - 每个 agent / sub-agent 维护自己的 token / cost 预算（`budget_usd_per_session`）；超出 80% 触发警告，100% 触发降级（缩短回答、关闭某个 tool）。
 
@@ -172,7 +172,7 @@
 - **replay 接口**：从 (input, model) 重放一次，跑完和 origin trace 对比 trajectory；trajectory 不一致 = prompt 模板或模型行为漂移。
 - **同步给 eval 平台**：pipeline 和 [`../evals.md`](../evals.md) §评测驱动开发 的 CI 串起来，每次 prompt 改动先在"上周真实失败集"上跑一遍。
 
-> **反直觉**：评测集不是"建好就完了"——它是**从线上 trace 持续生长**的。没有 trace 就没有"真实问题"，没有"真实问题"的评测集是真空中的分数。
+> 评测集不是"建好就完了"——它是**从线上 trace 持续生长**的。没有 trace 就没有"真实问题"，没有"真实问题"的评测集是真空中的分数。
 
 ## 6. 多 agent 维度的 cost / latency 拆分
 

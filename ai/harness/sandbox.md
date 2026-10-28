@@ -9,7 +9,7 @@
 - 资源限制分两层：**单次 tool 调用**（CPU / 内存 / fd / wall-clock，syscall / cgroup 层）和**整个 session 生命周期**（总 quota、cost、步数，harness 状态机层）。
 - 网络策略最容易"装了一半"——**DNS 必须显式处理**：只封 IP 没用，agent 用 `getent hosts` 就绕过；egress 过滤必须在 DNS 解析前生效。
 - 权限 policy（"高风险动作要二次确认"）必须在 **harness 层强制**，不能只写在 prompt。模型照删不误——harness 要先 deny、再由 UI 弹确认、再放行。
-- 反直觉：**sandbox 不是越多越安全**。每多一层隔离，agent 工具能力就少一截；过度 sandbox 会让模型退化到"只能做无害的事"，再无任务价值。
+- **sandbox 不是越多越安全**。每多一层隔离，agent 工具能力就少一截；过度 sandbox 会让模型退化到"只能做无害的事"，再无任务价值。
 
 ## 1. 文件系统隔离
 
@@ -17,7 +17,7 @@
 
 | 层                     | 内容                                   | 默认权限               | 典型风险                           |
 | :--------------------- | :------------------------------------- | :--------------------- | :--------------------------------- |
-| **working dir**        | 任务相关目录（cwd、用户指定 repo）     | 读 + 写 + 执行（受限） | 路径穿越（`../../etc/passwd`）     |
+| **working dir**        | 任务相关目录（cwd、用户指定 repo）     | 读 + 写；执行需显式 allow | 路径穿越（`../../etc/passwd`）     |
 | **scratch / 临时目录** | `/tmp` 或 harness 私有 tmpfs           | 读 + 写，执行受限      | 符号链接逃逸到 working dir 之外    |
 | **持久化目录**         | session 结束仍保留（artifacts / 缓存） | 读 + 写                | 跨 session 残留敏感数据            |
 | **挂载的只读视图**     | 工具需要的二进制 / 库（Python、Node）  | 读 + 执行              | 被写入污染（`site-packages` 被改） |
@@ -48,7 +48,7 @@
 - **黑名单**（默认放行 + 显式 deny）：松。Block 内网 IP / 已知 C2 域名 / 隐私数据外发端点。适合"我不确定 agent 要什么，但绝不能让它干 X"。
 - **离线模式**（默认拒绝所有 egress）：最严。Tool 完全不能联网，只靠本地资源（filesystem / 缓存）。Code interpreter 跑不可信代码时是必选。
 
-> **反直觉**：白名单比黑名单**实际更简单**。黑名单永远列不完（你不知道攻击者会用哪个新域名），白名单的"遗漏"是失败安全（deny by default），黑名单的"遗漏"是失败不安全（allow by default）。
+> 白名单比黑名单**实际更简单**。黑名单永远列不完（你不知道攻击者会用哪个新域名），白名单的"遗漏"是失败安全（deny by default），黑名单的"遗漏"是失败不安全（allow by default）。
 
 ### 2.2 DNS 容易被漏
 
@@ -161,7 +161,7 @@ every_step() -> {
                         - ephemeral uid
 ```
 
-> **反直觉**：tool sandbox 通常**比 agent 容器更严**。Agent 容器是"agent 长期工作的地方"，允许装包、缓存、写自己的 state；tool sandbox 是"每次新开的、销毁的、最小化的"。
+> tool sandbox 通常**比 agent 容器更严**。Agent 容器是"agent 长期工作的地方"，允许装包、缓存、写自己的 state；tool sandbox 是"每次新开的、销毁的、最小化的"。
 
 - 工具 sandbox 用 **ephemeral**（每次调用新创建、结束后销毁）。
 - Agent 容器**不直接调原生 shell**——它的 shell tool 是个 stub，真正执行转发到 tool sandbox。

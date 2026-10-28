@@ -1,5 +1,7 @@
 # RAG / 知识检索（Retrieval-Augmented Generation）
 
+> 数字核对：2026-10-27。本篇模型一律用“能力档”表达（轻量 / 主力 / 长上下文），具体型号与价格查官方价目表。
+
 ## TL;DR
 
 - RAG 的核心不是"加一个向量库"，而是把模型回答的依据从"参数里记得"转成"外部可验证的证据"——对应 `agent.md` 里的 grounding 与幻觉缓解。
@@ -11,7 +13,7 @@
 ## 相关链接
 
 - `agent.md`：grounding / 幻觉两类 / 闭环验收——RAG 是 agent 工具集中的一类
-- `prompt.md`：结构化输出、强制引用、不确定性表达——直接决定 RAG 的最终生成质量
+- `prompt_engineering.md`：结构化输出、强制引用、不确定性表达——直接决定 RAG 的最终生成质量
 - `prompt_engineering.md`：长上下文锚定、`lost-in-the-middle`、分段标签——RAG 上下文排版的核心技巧
 - `evals.md`：RAG 评估属于 task-level eval；RAGAS / TruLens 也在那篇有提及
 
@@ -64,7 +66,7 @@ LLM 单独使用的四个硬伤：知识截止、幻觉（`agent.md` 分内在 /
 - **图片**：传统 OCR + caption 再 embed；新做法用 **ColPali** 类 VLM 直接对页面图像做 multi-vector 检索（ICLR 2025）。
 - **代码 + 文档混合（如 README）**：按 markdown heading 切，保留 heading 路径作为 metadata。
 
-> 一个反直觉点：**chunk 策略改了 → 必须重建索引**。它不是 prompt，是 schema 级变更，沿用旧索引会让 retrieval 一塌糊涂。
+> **chunk 策略改了 → 必须重建索引**。它不是 prompt，是 schema 级变更，沿用旧索引会让 retrieval 一塌糊涂。
 
 ## 4. Embedding 与索引
 
@@ -188,7 +190,7 @@ bi-encoder（embedding）把 query 和 doc 压成单向量丢失大量细节；c
 
 把当前公开的最佳实践叠成一套：
 
-- **Contextual chunk**：每个 chunk 前面拼 50-100 token 的"该 chunk 在文档中的上下文说明"（Claude Haiku 生成 + prompt caching，~$1/M token）。
+- **Contextual chunk**：每个 chunk 前面拼 50-100 token 的"该 chunk 在文档中的上下文说明"（用便宜档模型生成 + prompt caching；单价按当前轻量档算，别照抄旧价）。
 - **Contextual embedding + contextual BM25**：用上述 contextual chunk 同时建语义索引和 BM25 索引。
 - **Rerank**：召回 150 → Cohere rerank → top 20。
 
@@ -231,7 +233,7 @@ bi-encoder（embedding）把 query 和 doc 压成单向量丢失大量细节；c
 - **同一文档反复召回**：top-k 里 5 个片段都来自同一节，看似 recall 高其实信息冗余——靠 MMR 或文档级去重。
 - **stale index**：文档更新了索引没更，模型回答 2 年前的版本；必须有 reindex pipeline + 版本号。
 - **过度依赖 LLM-as-judge**：judge 偏置严重；至少抽 10% 人工校准。
-- **prompt injection 通过检索片段进入**：网页 / 用户文档夹"忽略所有规则"指令会被当成系统指令——必须显式隔离（见 `prompt.md`）。
+- **prompt injection 通过检索片段进入**：网页 / 用户文档夹"忽略所有规则"指令会被当成系统指令——必须显式隔离（见 `prompt_engineering.md`）。
 - **retrieval bias**：embedding 训练分布会带偏（如对英文 query 召回更准）；多语种场景要专门测。
 - **太多层包不住根因**：HyDE + multi-query + rerank + self-RAG 全开后一次失败你不知道是哪层的事——上线前每加一层都要单独 A/B 验证。
 

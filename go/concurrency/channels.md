@@ -27,7 +27,7 @@ type hchan struct {
 
 - Channel **不是无锁的**。
 - 所有操作（发送、接收、关闭）都需要先获取 `hchan.lock`。
-- 锁的粒度很小，仅涉及指针移动和队列操作，数据拷贝发生在锁外（部分情况）或锁内（视实现细节而定，通常拷贝数据较快）。
+- 元素拷贝（`typedmemmove`）就在持锁期间完成，所以元素越大、含指针越多，`hchan.lock` 的持有时间越长。
 
 ### 2. 环形缓冲区 (Circular Buffer)
 
@@ -68,13 +68,11 @@ type hchan struct {
   4. 如果无，将当前 G 挂入所有 Channel 的等待队列。
   5. 被唤醒时，从所有队列中移除自己。
 
----
-
-# Channels（使用语义 / 实战要点）
+## Channels（使用语义 / 实战要点）
 
 上面偏 runtime 视角；下面补充**写业务代码时必须掌握的 channel 语义与坑点**。
 
-## 1. 关闭（close）语义：只由发送方关闭
+### 1. 关闭（close）语义：只由发送方关闭
 
 - **原则**：`close(ch)` 只由**发送方（owner）**执行；接收方不应该关闭（否则发送者可能 panic）。
 - **发送到已关闭 channel**：必然 `panic`。
@@ -88,14 +86,14 @@ v, ok := <-ch // ok=false 表示 channel 已关闭且缓冲已耗尽
 - **close 的“广播效应”**：多个接收者都会被唤醒并读到 `ok=false`（常用于通知退出）。
 - **close 两次会 panic**：多生产者场景用 `sync.Once` 或“集中关闭者”模式保证只 close 一次。
 
-## 2. Buffered vs Unbuffered：同步点 vs 队列
+### 2. Buffered vs Unbuffered：同步点 vs 队列
 
 - **无缓冲 channel**：发送与接收必须“握手”同时发生，是天然的同步点。
 - **有缓冲 channel**：缓冲未满时发送不会阻塞；缓冲为空时接收会阻塞。
 - **背压（Backpressure）**：通过小缓冲或无缓冲，让上游在下游慢时自然阻塞，避免无限堆积。
 - **缓冲大小不是越大越好**：过大可能掩盖慢消费问题，导致内存膨胀/延迟抖动。
 
-## 3. `select` 的关键语义
+### 3. `select` 的关键语义
 
 - **就绪 case 的选择**：Go 会做伪随机选择（尽量公平，但不保证严格公平/确定性）。
 - **`default` 分支**：如果加了 `default`，`select` 永不阻塞，很容易写出“忙等”（CPU 飙高）。
@@ -112,18 +110,18 @@ for {
 }
 ```
 
-## 4. nil channel：可用于“动态开关 case”
+### 4. nil channel：可用于“动态开关 case”
 
 - **对 nil channel 的发送/接收会永久阻塞**。
 - **在 select 中**：`case <-nilCh:` 永远不会就绪，相当于禁用该 case（常用于状态机/tee 技巧）。
 
-## 5. 方向（只读/只写）与 API 设计
+### 5. 方向（只读/只写）与 API 设计
 
 - 返回给调用方时，尽量返回只读：`<-chan T`。
 - 传入 worker 时，尽量把方向收窄：`jobs <-chan Job`、`results chan<- Result`。
 - 好处：减少误用（比如外部 close/发送）。
 
-## 6. “谁负责关闭”模式（Owner-close）
+### 6. “谁负责关闭”模式（Owner-close）
 
 一种非常稳的结构：**创建 channel 的 goroutine 同时负责关闭它**。
 
@@ -144,18 +142,18 @@ func produce(ctx context.Context) <-chan int {
 }
 ```
 
-## 7. 泄漏（Leak）与退出：优先用 ctx / done
+### 7. 泄漏（Leak）与退出：优先用 ctx / done
 
 常见泄漏原因：发送方/接收方永远阻塞在 channel 操作上（没有退出条件）。
 
 - **建议**：goroutine 内部的循环都要监听 `ctx.Done()`（或 done channel）。
 - **消费输入时**：如果输入可能永不关闭，用“orDone”模式包一层，保证可取消退出（见 `concurrency_patterns.md`）。
 
-## 8. `time.After` 的小坑（循环里慎用）
+### 8. `time.After` 的小坑（循环里慎用）
 
 在热循环中频繁 `time.After(d)` 会不断分配定时器对象；更稳的是 `time.NewTimer` 复用，并注意 `Stop/Reset`。
 
-## 9. 速查清单（写并发时对照）
+### 9. 速查清单（写并发时对照）
 
 - **只有发送方 close**，并且只 close 一次。
 - **接收用 `v, ok := <-ch`** 或 `range`，别忽略关闭语义。

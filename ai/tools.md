@@ -11,7 +11,7 @@
 ## 相关链接
 
 - `agent.md`：智能体闭环——tool 是"Act"那一段
-- `prompt.md`：tool description 本质上是 prompt
+- `prompt_engineering.md`：tool description 本质上是 prompt
 - `prompt_engineering.md`：ReAct、结构化输出、Self-Consistency 与 tool 的搭配
 - `evals.md`：tool 调用准确率、参数准确率、agent-level 任务成功率的评测方法
 
@@ -96,6 +96,8 @@ Toolformer 论文（Schick et al., 2023, arXiv:2302.04761）证明：让模型�
 ### 3.4 MCP（Model Context Protocol）
 
 > 2024 年 11 月 Anthropic 推出的开放标准，把"工具/数据/提示"做成可独立部署的 server，被任意 host（Claude Desktop / Cursor / VS Code / ChatGPT）复用。官方比作 "USB-C for AI"。
+>
+> 一年后的状态：规范最新版本是 **2025-11-25**（新增 tasks 原语——可轮询/延后取结果的持久请求、OAuth Client ID Metadata Documents、icons 元数据、OIDC discovery）；**2025-12-09 起 MCP 成为 Linux Foundation 旗下 Agentic AI Foundation（AAIF）的创始项目**（同期还有 goose、AGENTS.md），维护者层级与 SEP 流程不变，技术方向仍由 maintainer 决定。
 
 **架构**：
 

@@ -11,8 +11,6 @@
 - **并发上限**：默认要“限并发”（worker pool 或 semaphore），不要无限起 goroutine。
 - **关闭规则**：只由**发送方**关闭 channel；接收方不 close。
 
----
-
 ## 1) 批量请求/批量 IO：并发执行 + 任一失败取消全部
 
 **适用**：并发调用 HTTP/RPC/DB；任何一个失败就整体失败；需要超时。
@@ -34,8 +32,6 @@ if err := g.Wait(); err != nil {
     // 任一失败：ctx 已取消，其它任务应尽快退出
 }
 ```
-
----
 
 ## 2) 不固定 worker：只想限制“同时进行的任务数”
 
@@ -62,8 +58,6 @@ wg.Wait()
 ```
 
 **注意**：如果任务需要可取消，把 `ctx` 带进去并在任务内部监听 `ctx.Done()`。
-
----
 
 ## 3) Producer-Consumer：生产者产出任务，多个消费者处理
 
@@ -98,8 +92,6 @@ func run(ctx context.Context, workers int, jobs <-chan Job) <-chan Result {
 }
 ```
 
----
-
 ## 4) 多阶段流水线：Source → Stage1 → Stage2 → Sink
 
 **适用**：数据需要分阶段处理；每阶段可并行；要可取消、防泄漏。
@@ -124,8 +116,6 @@ func stage(ctx context.Context, in <-chan T) <-chan U {
 }
 ```
 
----
-
 ## 5) 多路输入合并：Fan-In（N→1 汇总）
 
 **适用**：多个 worker/多个来源汇聚到单个下游；下游顺序不重要。
@@ -133,8 +123,6 @@ func stage(ctx context.Context, in <-chan T) <-chan U {
 **推荐模板**：Fan-In + `WaitGroup` 收口 + `close(out)`。
 
 > 代码见 `concurrency_patterns.md` 的 `fanIn` 泛型版本。
-
----
 
 ## 6) 广播通知：一次事件唤醒所有 goroutine
 
@@ -156,8 +144,6 @@ case <-ctx.Done():
 }
 ```
 
----
-
 ## 7) 限流：控制 QPS / 速率
 
 **适用**：外部接口限速；后台任务节流。
@@ -174,8 +160,6 @@ for req := range requests {
 }
 ```
 
----
-
 ## 8) 超时：整体超时 vs 局部等待
 
 **适用**：请求 SLA / 单步等待 / 重试退避。
@@ -190,8 +174,6 @@ defer cancel()
 err := do(ctx)
 _ = err
 ```
-
----
 
 ## 9) 优雅退出：服务收到信号后停止接活并等待收尾
 
@@ -210,8 +192,6 @@ var wg sync.WaitGroup
 wg.Wait()
 ```
 
----
-
 ## 10) “只做一次”的并发去重：同一个 key 同时来只执行一次
 
 **适用**：缓存击穿保护、并发刷新、同一资源同时加载。
@@ -220,16 +200,12 @@ wg.Wait()
 
 > 这里不展开代码；需要的话我可以补一段“单飞 + ctx + 过期缓存”组合模板。
 
----
-
 ## 11) 常见组合建议（选型小抄）
 
 - **批量外部调用**：`errgroup.WithContext` +（必要时）semaphore +（必要时）rate limit
 - **持续任务流**：worker pool + 背压（小缓冲 jobs）+ 广播 done/ctx 取消
 - **多阶段计算**：pipeline +（可选）每阶段内部做限并发
 - **汇总多来源**：fan-in + 下游单消费者（或再 fan-out）
-
----
 
 ## 12) 并发请求“竞速”：取最快成功结果，其余丢弃/取消（Hedged / Race）
 
@@ -285,7 +261,12 @@ func firstSuccess[T any](parent context.Context, fns ...func(context.Context) (T
     case v := <-resultCh:
         return v, nil
     case <-ctx.Done():
-        // parent 取消/超时
+        // 竞速者可能"先发结果、后 cancel"，先非阻塞复查一次，别把成功结果丢掉
+        select {
+        case v := <-resultCh:
+            return v, nil
+        default:
+        }
         return zero, ctx.Err()
     case err := <-errCh:
         // 这里拿到的是“某一个失败”。继续把剩余的错误消费完，直到确认没有成功。
@@ -308,8 +289,6 @@ func firstSuccess[T any](parent context.Context, fns ...func(context.Context) (T
 
 - “最快回复”通常应理解为 **最快成功（2xx/无 error）**；否则最快的可能是错误/超时。
 - 要让“取消真的生效”，下游调用必须使用可取消的 API（例如 `http.NewRequestWithContext`、DB/RPC 的 ctx 版本）。
-
----
 
 ## 参考
 

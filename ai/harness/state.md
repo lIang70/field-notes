@@ -34,13 +34,13 @@ State 的边界**就是进程边界 + 显式终止信号**。判断一个东西"
 - **定时器落**：后台 agent、长挂起任务、跨分钟 / 小时的流程——每隔 N 秒 / N 步兜底一次。
 - **混合**：决策点为主 + 定时器兜底 + 每步只写 trace 不写 snapshot。
 
-> **反直觉点**：落盘频率**不是**"越高越安全"。**太频繁的 checkpoint 反而引入不一致**：如果 step 5 的 snapshot 写到了 step 4 之后、step 6 副作用发完之后，resume 时程序以为自己在 step 5，实际环境里 step 6 的副作用已经发生——典型的"快照-现实割裂"。
+> 落盘频率**不是**"越高越安全"。**太频繁的 checkpoint 反而引入不一致**：如果 step 5 的 snapshot 写到了 step 4 之后、step 6 副作用发完之后，resume 时程序以为自己在 step 5，实际环境里 step 6 的副作用已经发生——典型的"快照-现实割裂"。
 
 ### 2.2 落盘位置（按量级）
 
 - **单进程 demo / 本地 agent** → **SQLite**：零运维、文件即库、fsync 即一致。
 - **低延迟热路径 / 大量小 checkpoint** → **Redis**：sub-ms 写、可设 TTL；缺点是容量小、贵、不便复杂查询。
-- **跨服务 / 关系查询 / 长期任务** → **Postgres**：事务、回放、跨表 JOIN、replication；主流生产选择（LangGraph、flowcraft、AG-UI 后端）。
+- **跨服务 / 关系查询 / 长期任务** → **Postgres**：事务、回放、跨表 JOIN、replication；主流生产选择（LangGraph、flowcraft `backends/checkpoint`、AG-UI 后端）。
 - **超大 artifact（截图、生成的 PDF）** → **对象存储（S3 / GCS）**：便宜、版本化；metadata 仍写 Postgres / SQLite。
 - **混合**：PG / SQLite 做 state + S3 做 blob——小状态在 DB、大对象在对象存储、引用以 URL 形式挂在 state 里。
 
@@ -88,7 +88,7 @@ CREATE TABLE checkpoints (
 3. **重建 LLM 上下文**（conversation + scratchpad + tool result 历史），**不要**让模型"重新推理"——它应该接上"上一个 checkpoint 时的状态"继续。
 4. **回到 FSM 的对应节点**，按当前 state 的"该做什么"决定下一步。
 
-> **反直觉点**：很多 harness 失败时让 agent "从头思考"——这等于丢弃了所有中间推理，**等价于把整个 task 重新跑一遍**，成本是 O(N) 而不是 O(剩余步骤)。正确的 resume 是 O(剩余) 起步：第 47 步挂了，resume 后从第 47 步继续，而不是从第 1 步。
+> 很多 harness 失败时让 agent "从头思考"——这等于丢弃了所有中间推理，**等价于把整个 task 重新跑一遍**，成本是 O(N) 而不是 O(剩余步骤)。正确的 resume 是 O(剩余) 起步：第 47 步挂了，resume 后从第 47 步继续，而不是从第 1 步。
 
 崩溃后**由谁负责触发 resume**——子进程看门狗、scheduler、k8s liveness、还是用户手动——是 [`./lifecycle.md`](lifecycle.md) 的事，不是 state.md 的事。
 
@@ -126,7 +126,7 @@ def execute_side_effect(step_id, action):
     return result
 ```
 
-> **反直觉点**：很多团队"先发请求，成功后写日志"——失败在两者之间 = **重做时再发一次 = 双扣款 / 重复邮件 / 重复下单**。正确顺序是 **outbox 先写 + 事务提交 → 发动作 → 标记 sent**，三段式。这与 [Pat Helland 的 outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html) 同源。
+> 很多团队"先发请求，成功后写日志"——失败在两者之间 = **重做时再发一次 = 双扣款 / 重复邮件 / 重复下单**。正确顺序是 **outbox 先写 + 事务提交 → 发动作 → 标记 sent**，三段式。这与 [Pat Helland 的 outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html) 同源。
 
 ## 5) 时间旅行调试（Time-Travel Debug）
 
@@ -137,7 +137,7 @@ def execute_side_effect(step_id, action):
 - **边界**：LLM 本身可能有非确定性（推理引擎版本差异、浮点累计），完全可重放需要**记录 response** 而不是"再调一次"。
 - **价值**：bug 复现、决策归因（"为什么模型选 A 不选 B"）、反事实分析（"如果限速再低 10% 会不会走通"）。
 
-> **反直觉点**：时间旅行调试**不是"重跑一遍 task"**——它是"从某个决策点分叉，重跑**之后**的步骤"。前者慢、贵、改不到根因；后者快、精确、能定位"哪一步的决策错了"。
+> 时间旅行调试**不是"重跑一遍 task"**——它是"从某个决策点分叉，重跑**之后**的步骤"。前者慢、贵、改不到根因；后者快、精确、能定位"哪一步的决策错了"。
 
 ## 6) 状态机持久化（FSM Snapshot）
 
@@ -175,7 +175,7 @@ def execute_side_effect(step_id, action):
 - **可观测**：单 agent 一条轨迹即可；多 agent 需按 agent 维度拆分 trace，否则归因变难。
 - **典型反模式**：单 agent 把"对话历史"当 state（污染）；多 agent 把"当前网页内容"塞进共享 state（注入放大版）。
 
-> **反直觉点**：**多 agent 共享 state 看起来"方便"，实际最容易污染**——所有 agent 看见所有内容 = 提示注入风险 ×N。**外部材料只能进消息流 / context，不能进 shared state**（见 [`../multi_agent.md`](../multi_agent.md) §10）。  
+> **多 agent 共享 state 看起来"方便"，实际最容易污染**——所有 agent 看见所有内容 = 提示注入风险 ×N。**外部材料只能进消息流 / context，不能进 shared state**（见 [`../multi_agent.md`](../multi_agent.md) §10）。  
 > 多 agent 状态管理**模型**（共享 / 总线 / 显式传递）见 [`../multi_agent.md`](../multi_agent.md) §4，本节只讨论**存储差异**。
 
 ## 8) 反直觉点（小结）

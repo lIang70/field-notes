@@ -9,7 +9,7 @@ Go 的内存管理采用层级结构：
 ### 1. mspan (内存块)
 
 - 内存管理的基本单元。
-- 一个 mspan 包含一组连续的 Page (通常 8KB)。
+- 一个 mspan 包含连续的 `npages` 个 page（1 page = 8KB，所以 mspan 大小 = npages × 8KB，不是固定 8KB）。
 - 按照对象大小（Size Class）划分，每个 mspan 只分配特定大小的对象。
 
 ### 2. mcache (线程缓存)
@@ -41,7 +41,7 @@ Go 根据对象大小采用不同的分配策略：
 1. **微对象 (Tiny Object) < 16B**:
     - 使用专门的 `tiny` 分配器。
     - 多个微对象会被合并到一个 16B 的内存块中，减少碎片。
-    - 无指针对象（noscan）优先。
+    - tiny 分配器**只**接受 noscan 且 < 16B 的对象（也接受小于 16B 的 string），合并进同一个 16B 块。
 
 2. **小对象 (Small Object) 16B ~ 32KB**:
     - 也是最常见的分配场景。
