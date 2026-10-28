@@ -4,11 +4,11 @@ A personal knowledge base in Markdown — short, opinionated notes written for q
 
 **62 files · 4 areas · last touched 2026-10-28.**
 
-## What this is (and what it isn't)
+## What this is
 
-- **A personal notebook.** Pages are terse, assume the basics, and focus on the counter-intuitive bits and engineering handles.
-- **Not a tutorial, not a reference, not a beginner's guide.** Don't expect coverage from first principles.
-- **May not be fully accurate.** These are my mental models and shorthand — verify before relying on them.
+- **Notes to myself.** Written after reading source, profiling something, or getting it wrong once. Terse on purpose.
+- **Not a tutorial.** Assumes you already know the basics; nothing is built up from first principles.
+- **Not always right.** These are my mental models from the time of writing — check before you rely on them.
 
 ## License
 
