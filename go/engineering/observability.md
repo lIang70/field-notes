@@ -1,7 +1,7 @@
 # 可观测性（日志 / trace / 指标 / 归因）
 
 > 一个 agent 系统的可观测性和普通服务最大的差别是：**你要能回答"它为什么这么做"**，而不只是"它有多慢"。
-> 指标与日志的具体形态，配合 [`../../ai/harness/observability.md`](../../ai/harness/observability.md)（方法论层）一起看。
+> 指标与日志的具体形态，配合 [可观测性](../../ai/harness/observability.md)（方法论层）一起看。
 
 ## TL;DR
 
@@ -32,7 +32,7 @@ log.Info("runtime assembled",
 
 配套三条：失效也要记（`runtime invalidated` + reason）、原地热替换要记（`document reloaded in place`）、**失败回退要记原因**（"本想原地换，为什么改成全量重建"）。
 
-> 这套字段的直接回报：一次"偶发卡 300ms"最后定位到"保存设置 + 切工作区 + 插件写入"在同一个 drain 里各自唤醒一个 watcher（[`optimization.md`](optimization.md) §7）。没有 reason 字段，这个结论只能靠猜。
+> 这套字段的直接回报：一次"偶发卡 300ms"最后定位到"保存设置 + 切工作区 + 插件写入"在同一个 drain 里各自唤醒一个 watcher（[桌面 agent 的性能治理](optimization.md) §7）。没有 reason 字段，这个结论只能靠猜。
 
 ## 2. 指标
 
@@ -58,7 +58,7 @@ log.Info("runtime assembled",
 ## 5. 把 trace 接回评测
 
 - trace 里给每个 span 打 `(turn, agent, tool, prompt_segment)` 四元组，失败归因从"哪里错了"收敛到"哪一行 prompt 错了"。
-- 线上 trace → 离线 dataset：`(input, expected_trajectory, expected_outcome)` 三元组，可以直接 replay 失败 case（见 [`../../ai/evals.md`](../../ai/evals.md)）。
+- 线上 trace → 离线 dataset：`(input, expected_trajectory, expected_outcome)` 三元组，可以直接 replay 失败 case（见 [评测](../../ai/evals.md)）。
 - 成本按 `agent.name` / 模型 group by，找"钱花在谁身上"；这是多 agent 系统唯一现实的成本治理手段。
 
 ## 6. 反模式
@@ -81,8 +81,8 @@ log.Info("runtime assembled",
 
 ## 相关链接
 
-- [`../architecture/layering.md`](../architecture/layering.md)（runtime 装配发生在哪一层）
-- [`optimization.md`](optimization.md)（用归因定位装配风暴的那一轮；§证据来源表里有每节指标的出处）
-- [`../runtime/pprof.md`](../runtime/pprof.md)（profile 答"分配在哪"，指标答"何时变差"）
-- [`testing.md`](testing.md)（trace → offline dataset，测试与线上共用一套用例）
-- [`../../ai/harness/observability.md`](../../ai/harness/observability.md)（方法论：四件套、四元组、trace→dataset）
+- [分层与扩展点](../architecture/layering.md)（runtime 装配发生在哪一层）
+- [桌面 agent 的性能治理](optimization.md)（用归因定位装配风暴的那一轮；§证据来源表里有每节指标的出处）
+- [pprof 与性能读法](../runtime/pprof.md)（profile 答"分配在哪"，指标答"何时变差"）
+- [测试布局](testing.md)（trace → offline dataset，测试与线上共用一套用例）
+- [可观测性](../../ai/harness/observability.md)（方法论：四件套、四元组、trace→dataset）

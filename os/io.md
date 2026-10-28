@@ -114,8 +114,8 @@ Disk -> Kernel Buffer -> User Buffer -> Kernel Socket Buffer -> Network
 
 这部分更偏“块设备/存储性能”，与文件系统抽象（VFS/inode）区分开会更清晰：
 
-- 文件系统抽象看 [`filesystem.md`](filesystem.md)
-- 系统负载/观测指标看 [`payload.md`](payload.md)
+- 文件系统抽象看 [File System](filesystem.md)
+- 系统负载/观测指标看 [Payload](payload.md)
 
 ### 磁盘调度算法（概念）
 

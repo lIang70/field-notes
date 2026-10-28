@@ -82,7 +82,7 @@
 
 ## 相关链接
 
-- [`errors.md`](errors.md)（"超出上限"该映射成哪一类错误）
-- [`async_blocking.md`](async_blocking.md)（阻塞与超时同样是"有界"的一部分）
-- [`../../os/sandbox.md`](../../os/sandbox.md)（cgroup / 进程级的上限是另一层）
-- [`../../go/engineering/optimization.md`](../../go/engineering/optimization.md)（应用层"边界账"的实战：transcript 的 16 MiB 双预算）
+- [错误分类](errors.md)（"超出上限"该映射成哪一类错误）
+- [async / blocking 边界](async_blocking.md)（阻塞与超时同样是"有界"的一部分）
+- [沙箱与进程隔离](../../os/sandbox.md)（cgroup / 进程级的上限是另一层）
+- [桌面 agent 的性能治理](../../go/engineering/optimization.md)（应用层"边界账"的实战：transcript 的 16 MiB 双预算）

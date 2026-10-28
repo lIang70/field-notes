@@ -89,7 +89,7 @@ disallowed-methods = [
 
 ## 相关链接
 
-- [`bounds.md`](bounds.md)（超时与上限是同一类"有界"）
-- [`workspace.md`](../architecture/workspace.md)（这些 capability 的模块位置与 feature 边界）
-- [`../../go/engineering/optimization.md`](../../go/engineering/optimization.md)（Go 侧对应的"async/阻塞"与分配治理）
-- [`../../os/concurrency.md`](../../os/concurrency.md)（线程池、阻塞与调度的一般原理）
+- [有界容器](bounds.md)（超时与上限是同一类"有界"）
+- [Rust workspace 的形状](../architecture/workspace.md)（这些 capability 的模块位置与 feature 边界）
+- [桌面 agent 的性能治理](../../go/engineering/optimization.md)（Go 侧对应的"async/阻塞"与分配治理）
+- [Concurrency](../../os/concurrency.md)（线程池、阻塞与调度的一般原理）

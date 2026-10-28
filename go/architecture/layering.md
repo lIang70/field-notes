@@ -61,7 +61,7 @@ func Register(impl string, f func(Params) (ContextProvider, error)) {
 
 ## 相关链接
 
-- [`craft_abi.md`](craft_abi.md)（平台与 sidecar 之间的 ABI、插件宿主）
-- [`../engineering/release.md`](../engineering/release.md)（这些模块怎么各自发版）
-- [`../engineering/conventions.md`](../engineering/conventions.md)（分层落地时的 Go 细节）
-- [`../../ai/memory.md`](../../ai/memory.md)（契约面在记忆系统里的完整实现）
+- [Craft ABI 与插件宿主](craft_abi.md)（平台与 sidecar 之间的 ABI、插件宿主）
+- [多模块发布与发布工程](../engineering/release.md)（这些模块怎么各自发版）
+- [Go 工程约定](../engineering/conventions.md)（分层落地时的 Go 细节）
+- [AI 记忆系统](../../ai/memory.md)（契约面在记忆系统里的完整实现）

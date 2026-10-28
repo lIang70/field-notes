@@ -302,12 +302,12 @@ Context 装得好不好，独立于"最终任务成功率"也要测。四类指�
 
 ## 相关链接
 
-- [`ai/prompt_engineering.md`](prompt_engineering.md)——"长上下文技巧"那一节讲 prompt **内部**排版（锚定、分段标签、`[[id]]` 引用、缓存友好布局），本篇讲 prompt **外部**装配；其余 prompt 模式（CoT / ReAct / 结构化输出）见该文
-- [`ai/prompt_engineering.md`](prompt_engineering.md)——5 元素框架与 Level 1/2/3 层级（CE 的"指令层"基础）
-- [`ai/agent.md`](agent.md)——agent 闭环架构（CE 的"动作层"基础）
-- [`ai/evals.md`](evals.md)——context 利用率、必要 token 比、cache hit rate 这些指标的测试方法
-- [`ai/memory.md`](memory.md)——长期 memory 系统的工程实现（本篇"外部层"的具体落地）
-- [`ai/inference_serving.md`](inference_serving.md)——自建推理侧的成本与延迟账（缓存命中与 TTFP 在同一张表里看）
-- [`ai/rag.md`](rag.md)——RAG 作为"动态 context"装配的具体做法
-- [`ai/tools.md`](tools.md)——tool result 折叠、artifact 模式的具体做法
-- [`ai/multi_agent.md`](multi_agent.md)——sub-agent 拓扑、context 隔离的具体做法
+- [提示工程](prompt_engineering.md)——"长上下文技巧"那一节讲 prompt **内部**排版（锚定、分段标签、`[[id]]` 引用、缓存友好布局），本篇讲 prompt **外部**装配；其余 prompt 模式（CoT / ReAct / 结构化输出）见该文
+- [提示工程](prompt_engineering.md)——5 元素框架与 Level 1/2/3 层级（CE 的"指令层"基础）
+- [Agent](agent.md)——agent 闭环架构（CE 的"动作层"基础）
+- [评测](evals.md)——context 利用率、必要 token 比、cache hit rate 这些指标的测试方法
+- [AI 记忆系统](memory.md)——长期 memory 系统的工程实现（本篇"外部层"的具体落地）
+- [自建推理服务](inference_serving.md)——自建推理侧的成本与延迟账（缓存命中与 TTFP 在同一张表里看）
+- [RAG / 知识检索](rag.md)——RAG 作为"动态 context"装配的具体做法
+- [工具使用](tools.md)——tool result 折叠、artifact 模式的具体做法
+- [多 Agent 编排](multi_agent.md)——sub-agent 拓扑、context 隔离的具体做法

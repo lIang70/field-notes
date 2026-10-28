@@ -1,7 +1,7 @@
 # Concurrency
 
 这一篇聚焦“并发工程”本身：线程同步原语、内存一致性模型、常见并发 bug、以及 Linux 上的同步实现细节（如 futex/锁/屏障等）。  
-进程/线程基础、调度算法、IPC 请看 [`process.md`](process.md)。
+进程/线程基础、调度算法、IPC 请看 [Process](process.md)。
 
 ## 1. 线程同步机制 (Synchronization Primitives)
 
@@ -227,7 +227,7 @@ private:
 
 ## 7. Linux 并发与同步实现 (Linux Concurrency Internals)
 
-这一节聚焦“同步原语在 Linux 上的实现直觉”，调度器/CFS/上下文切换观测等内容已移动到 [`process.md`](process.md)。
+这一节聚焦“同步原语在 Linux 上的实现直觉”，调度器/CFS/上下文切换观测等内容已移动到 [Process](process.md)。
 
 ### 7.1 Futex：用户态快路径 + 内核态慢路径
 
@@ -272,5 +272,5 @@ private:
 
 ## 相关阅读
 
-- [`process.md`](process.md)：进程/线程基础、调度算法、IPC
+- [Process](process.md)：进程/线程基础、调度算法、IPC
 - 死锁：已并入本文“常见并发 Bug → 死锁”

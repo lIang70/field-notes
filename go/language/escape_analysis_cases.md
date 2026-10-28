@@ -1,6 +1,6 @@
 # Escape Analysis 案例与性能优化
 
-> 这篇是 [`escape_analysis.md`](escape_analysis.md) 的"实战补充"：用最小可复现的片段 + `go build -gcflags` 输出，解释常见逃逸场景，并给出诊断工具清单。基础概念（栈/堆、指针逃逸、`interface{}` 装箱）见主文档。
+> 这篇是 [Escape Analysis](escape_analysis.md) 的"实战补充"：用最小可复现的片段 + `go build -gcflags` 输出，解释常见逃逸场景，并给出诊断工具清单。基础概念（栈/堆、指针逃逸、`interface{}` 装箱）见主文档。
 
 ## TL;DR
 
@@ -293,8 +293,8 @@ func hotPath() *T { return &T{} } // 关闭内联看是否逃逸
 
 ## 相关链接
 
-- [`escape_analysis.md`](escape_analysis.md)：基础概念（栈/堆、指针逃逸、`interface{}` 装箱等）。
-- [`../runtime/gc.md`](../runtime/gc.md)：分配的对象由 GC 跟踪；少一次堆分配 = 少给 GC 添负担。
-- [`../runtime/memory_allocator.md`](../runtime/memory_allocator.md)：小对象走 mcache，大对象直接走 mheap。
-- [`../runtime/scheduler.md`](../runtime/scheduler.md)：goroutine 栈的扩缩机制（逃逸发生在栈上放不下的时候）。
-- [`../runtime/netpoll.md`](../runtime/netpoll.md)：网络 I/O 中 `FD` / `pollDesc` 也是堆对象，复用思路同此。
+- [Escape Analysis](escape_analysis.md)：基础概念（栈/堆、指针逃逸、`interface{}` 装箱等）。
+- [GC](../runtime/gc.md)：分配的对象由 GC 跟踪；少一次堆分配 = 少给 GC 添负担。
+- [Go Memory Allocator](../runtime/memory_allocator.md)：小对象走 mcache，大对象直接走 mheap。
+- [Go Scheduler](../runtime/scheduler.md)：goroutine 栈的扩缩机制（逃逸发生在栈上放不下的时候）。
+- [netpoll](../runtime/netpoll.md)：网络 I/O 中 `FD` / `pollDesc` 也是堆对象，复用思路同此。

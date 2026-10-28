@@ -77,7 +77,7 @@ trait Aggregate<T> { fn add(&mut self, v: T); }   // 可以有多份实现
 
 ## 相关链接
 
-- [`ownership.md`](ownership.md)（`&mut` 的排他性在 trait 方法上的表现）
-- [`interior_mutability.md`](interior_mutability.md)（`Arc` + `Mutex` 的组合为什么是主流）
-- [`../architecture/workspace.md`](../architecture/workspace.md)（crate/feature 划分与"边界用 dyn"的关系）
-- [`../engineering/async_blocking.md`](../engineering/async_blocking.md)（`#[async_trait]` 与阻塞调用为什么会打架）
+- [所有权 / 借用 / 生命周期](ownership.md)（`&mut` 的排他性在 trait 方法上的表现）
+- [内部可变性：Cell / RefCell / OnceLock / Mutex 家族](interior_mutability.md)（`Arc` + `Mutex` 的组合为什么是主流）
+- [Rust workspace 的形状](../architecture/workspace.md)（crate/feature 划分与"边界用 dyn"的关系）
+- [async / blocking 边界](../engineering/async_blocking.md)（`#[async_trait]` 与阻塞调用为什么会打架）

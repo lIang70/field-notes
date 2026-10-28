@@ -1,7 +1,7 @@
 # 分配器与分配策略（GlobalAlloc / Layout / arena）
 
 > 内存问题有**三层杠杆**：全局分配器（最粗）、容器与缓冲的形状（最常用）、分配模式（arena / 池 / SoA）。
-> 这篇讲清三层的边界和代价。单次分配的成本与 `size_of` 表在 [`memory.md`](memory.md)。
+> 这篇讲清三层的边界和代价。单次分配的成本与 `size_of` 表在 [内存布局与分配](memory.md)。
 
 ## TL;DR
 
@@ -48,7 +48,7 @@ unsafe impl GlobalAlloc for Counting {
 - `realloc` 可以不实现（默认用 alloc+copy+dealloc）；实现时要保持一致的对齐与 size 语义。
 - **一个进程只能有一个 `#[global_allocator]`**，且它会影响所有 crate（包括依赖里的 `Vec`）。
 - 在 `main` 之前、`static` 初始化期间就会调用：分配器实现不能依赖其它全局状态。
-- 计数型分配器（测试里数分配次数）的写法在 [`memory.md`](memory.md) §7。
+- 计数型分配器（测试里数分配次数）的写法在 [内存布局与分配](memory.md) §7。
 
 ## 4. 换全局分配器：什么时候值
 
@@ -95,7 +95,7 @@ bump.reset();                                    // 整块回收，O(1)
 
 - 池省的是 `malloc/free`，付出的是：池的元数据、并发同步、生命周期错配（归还时还有引用）、以及"预热不够时的额外分配"。
 - 只有在"对象构造成本远大于分配成本"（比如带缓冲区的大结构）时才可能划算。
-- 最便宜的池：**复用同一份容器**——`vec.clear()` 保留容量，`String::clear()` 同理；这比重造一个池子稳得多（何时反过来说 `shrink_to_fit`，见 [`memory.md`](memory.md) §2）。
+- 最便宜的池：**复用同一份容器**——`vec.clear()` 保留容量，`String::clear()` 同理；这比重造一个池子稳得多（何时反过来说 `shrink_to_fit`，见 [内存布局与分配](memory.md) §2）。
 
 ## 8. 怎么测
 
@@ -128,8 +128,8 @@ bump.reset();                                    // 整块回收，O(1)
 
 ## 相关链接
 
-- [`memory.md`](memory.md)（`size_of` 表、Vec 增长、Arc 计数成本、计数分配器写法）
-- [`../language/ownership.md`](../language/ownership.md)（`Drop` 与生命周期——arena 跳过的正是它）
-- [`../engineering/bounds.md`](../engineering/bounds.md)（字节预算与"单块例外"这类策略）
-- [`tokio.md`](tokio.md)（环形日志与 `watch` 修订号的配合）
-- [`../../os/memory.md`](../../os/memory.md)（页、分配器、碎片的一般原理）
+- [内存布局与分配](memory.md)（`size_of` 表、Vec 增长、Arc 计数成本、计数分配器写法）
+- [所有权 / 借用 / 生命周期](../language/ownership.md)（`Drop` 与生命周期——arena 跳过的正是它）
+- [有界容器](../engineering/bounds.md)（字节预算与"单块例外"这类策略）
+- [tokio 实战：watch / broadcast / 世代切换 / 锁的选择](tokio.md)（环形日志与 `watch` 修订号的配合）
+- [Memory Management](../../os/memory.md)（页、分配器、碎片的一般原理）

@@ -1,6 +1,6 @@
 # 沙箱与进程隔离（实现层）
 
-> 讲机制怎么落地，不重复 policy 怎么写（那在 [`../ai/harness/sandbox.md`](../ai/harness/sandbox.md)），也不讲 namespace/cgroup 原理（那在 [`virtualization.md`](virtualization.md)）。
+> 讲机制怎么落地，不重复 policy 怎么写（那在 [沙箱与权限执行](../ai/harness/sandbox.md)），也不讲 namespace/cgroup 原理（那在 [虚拟化与容器](virtualization.md)）。
 > 案例来自 flowcraft 的 `core/sandbox` 与 `rust/`、opencraft 的 `execd`。
 
 ## TL;DR
@@ -132,8 +132,8 @@ escalation 是针对这种情况的第二个问题：这一次允许越狱吗？
 
 ## 相关链接
 
-- [`../ai/harness/sandbox.md`](../ai/harness/sandbox.md)（policy 侧：deny-list、HITL、quota 分层）
-- [`virtualization.md`](virtualization.md)（namespace / cgroup 原理）
-- [`process.md`](process.md)（进程创建、job object、回收）
-- [`network_stack.md`](network_stack.md)（egress / DNS / 代理）
-- [`../go/architecture/craft_abi.md`](../go/architecture/craft_abi.md)（同一套沙箱在 Go 侧的分层与 ABI）
+- [沙箱与权限执行](../ai/harness/sandbox.md)（policy 侧：deny-list、HITL、quota 分层）
+- [虚拟化与容器](virtualization.md)（namespace / cgroup 原理）
+- [Process](process.md)（进程创建、job object、回收）
+- [Linux 网络栈](network_stack.md)（egress / DNS / 代理）
+- [Craft ABI 与插件宿主](../go/architecture/craft_abi.md)（同一套沙箱在 Go 侧的分层与 ABI）

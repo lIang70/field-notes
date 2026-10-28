@@ -1,6 +1,6 @@
 # 自建推理服务（容量 / 部署 / 运维）
 
-> 讲模型选定之后的那部分工作。选型和质量评测在 [`evals.md`](evals.md)。
+> 讲模型选定之后的那部分工作。选型和质量评测在 [评测](evals.md)。
 > 内部业务的数字只留比例和延迟量级，价格绝对值、供应商名、集群标识都去掉了。
 
 ## TL;DR
@@ -90,7 +90,7 @@ CI 全离线、无 GPU、无网络、秒级：格式检查（版本锁在 `packa
 
 ## 相关链接
 
-- [`evals.md`](evals.md)（选型与质量评测）
-- [`speech_audio.md`](speech_audio.md)（TTS 在整条语音链路上的位置）
-- [`../os/sandbox.md`](../os/sandbox.md)（容器、挂载、隔离的同类坑）
-- [`../go/engineering/release.md`](../go/engineering/release.md)（发布门禁与约定机器化）
+- [评测](evals.md)（选型与质量评测）
+- [语音与音频链路](speech_audio.md)（TTS 在整条语音链路上的位置）
+- [沙箱与进程隔离](../os/sandbox.md)（容器、挂载、隔离的同类坑）
+- [多模块发布与发布工程](../go/engineering/release.md)（发布门禁与约定机器化）

@@ -1,6 +1,6 @@
 # 内存布局与分配（Vec / Box / Arc 的真实成本）
 
-> 讲"值放在哪、复制了什么、什么时候分配"。所有权与借用的语义在 [`../language/ownership.md`](../language/ownership.md)，这里只看内存。
+> 讲"值放在哪、复制了什么、什么时候分配"。所有权与借用的语义在 [所有权 / 借用 / 生命周期](../language/ownership.md)，这里只看内存。
 > 用法与数字取自 flowcraft 的 `rust/`（六万行、多线程、`Rc` 出现 0 次）。
 
 ## TL;DR
@@ -42,7 +42,7 @@ push → 容量不足 → 分配 cap*2（至少满足本次）→ memcpy 旧元�
 ```
 
 - 均摊 O(1)，但**峰值内存 = 旧缓冲 + 新缓冲**，在大容器上就是 1.5–2 倍的瞬时占用。
-- 容量**不会自动回落**：`drain`、`clear`、`truncate` 都保留 `cap`；要还就 `shrink_to_fit()` 或 `into_boxed_slice()`。**什么时候该还**：长期持有且不再增长的容器（缓存、连接池）；热路径上反复复用的缓冲恰恰要保留容量（见 [`allocator.md`](allocator.md) §7）。
+- 容量**不会自动回落**：`drain`、`clear`、`truncate` 都保留 `cap`；要还就 `shrink_to_fit()` 或 `into_boxed_slice()`。**什么时候该还**：长期持有且不再增长的容器（缓存、连接池）；热路径上反复复用的缓冲恰恰要保留容量（见 [分配器与分配策略](allocator.md) §7）。
 - 已知长度就 `with_capacity`——这不是微优化，而是"读文件/解析分片"这类路径上的标准动作（仓库里十几处 `Vec::with_capacity(src.len())` 都是这个形状）。
 - 反向的坑：给大量小 `Vec` 都拍一个 `with_capacity(4096)`，峰值内存直接乘上去。
 
@@ -174,9 +174,9 @@ static A: Counting = Counting;
 
 ## 相关链接
 
-- [`../language/ownership.md`](../language/ownership.md)（move / 借用 / `Drop` 的语义层）
-- [`../language/interior_mutability.md`](../language/interior_mutability.md)（`Arc<Mutex<T>>` 的组合成本）
-- [`../language/traits.md`](../language/traits.md)（单态化 vs `dyn` 的体积与速度）
-- [`tokio.md`](tokio.md)（`watch`/`broadcast` 的缓冲与环形日志的配合）
-- [`../engineering/bounds.md`](../engineering/bounds.md)（上限、回收、观测三件套）
-- [`../../go/runtime/memory_allocator.md`](../../go/runtime/memory_allocator.md)（另一门语言的分配器视角）
+- [所有权 / 借用 / 生命周期](../language/ownership.md)（move / 借用 / `Drop` 的语义层）
+- [内部可变性：Cell / RefCell / OnceLock / Mutex 家族](../language/interior_mutability.md)（`Arc<Mutex<T>>` 的组合成本）
+- [trait / 泛型 / 动态分发](../language/traits.md)（单态化 vs `dyn` 的体积与速度）
+- [tokio 实战：watch / broadcast / 世代切换 / 锁的选择](tokio.md)（`watch`/`broadcast` 的缓冲与环形日志的配合）
+- [有界容器](../engineering/bounds.md)（上限、回收、观测三件套）
+- [Go Memory Allocator](../../go/runtime/memory_allocator.md)（另一门语言的分配器视角）

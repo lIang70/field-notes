@@ -1,7 +1,7 @@
 # Craft ABI 与插件宿主
 
 > 平台与"跑 agent 循环的 sidecar"之间的契约，以及插件模型。案例来自 flowcraft 的 `craft` 模块 + `rust/flowcraft-platformd`（MIT）。
-> 分层的整体形状见 [`layering.md`](layering.md)。
+> 分层的整体形状见 [分层与扩展点](layering.md)。
 
 ## TL;DR
 
@@ -51,7 +51,7 @@
 
 ## 相关链接
 
-- [`layering.md`](layering.md)（四层与扩展点）
-- [`../engineering/release.md`](../engineering/release.md)（`craft` 与 `core` 的发布顺序）
-- [`../../os/sandbox.md`](../../os/sandbox.md)（真正的隔离在平台层怎么落地）
-- [`../../ai/tools.md`](../../ai/tools.md)（MCP 协议本身的形态）
+- [分层与扩展点](layering.md)（四层与扩展点）
+- [多模块发布与发布工程](../engineering/release.md)（`craft` 与 `core` 的发布顺序）
+- [沙箱与进程隔离](../../os/sandbox.md)（真正的隔离在平台层怎么落地）
+- [工具使用](../../ai/tools.md)（MCP 协议本身的形态）

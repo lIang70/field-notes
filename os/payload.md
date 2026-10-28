@@ -107,7 +107,7 @@
 
 ## 关联阅读（把指标落到系统机制）
 
-- 负载与运行队列/上下文切换：[`process.md`](process.md)
-- 锁竞争、活锁/饥饿、futex 与调度行为：[`concurrency.md`](concurrency.md)
-- OOM / swap / 缺页异常：[`memory.md`](memory.md)
-- I/O 多路复用、零拷贝、磁盘 I/O：[`io.md`](io.md)
+- 负载与运行队列/上下文切换：[Process](process.md)
+- 锁竞争、活锁/饥饿、futex 与调度行为：[Concurrency](concurrency.md)
+- OOM / swap / 缺页异常：[Memory Management](memory.md)
+- I/O 多路复用、零拷贝、磁盘 I/O：[I/O Management](io.md)

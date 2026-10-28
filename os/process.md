@@ -1,7 +1,7 @@
 # Process (进程)
 
 这一篇聚焦“进程作为 OS 抽象”的基础：状态模型、`fork/exec`、调度算法、IPC 等；并补充线程/协程的对比位置。  
-并发原语（锁/条件变量/信号量/内存模型/RCU/futex 等）请看 [`concurrency.md`](concurrency.md)。
+并发原语（锁/条件变量/信号量/内存模型/RCU/futex 等）请看 [Concurrency](concurrency.md)。
 
 ## 1. 进程基础 (Process Basics)
 
@@ -132,7 +132,7 @@ stateDiagram-v2
 - **可恢复**：处理完还能回到原来指令继续执行（典型：缺页异常；syscall 返回）。
 - **不可恢复**：通常导致进程被信号终止或崩溃（典型：非法地址访问导致的 `SIGSEGV`）。
 
-（关联阅读）缺页异常的详细流程在 [`memory.md`](memory.md) 里。
+（关联阅读）缺页异常的详细流程在 [Memory Management](memory.md) 里。
 
 ## 7. 上下文切换：到底保存/恢复了什么？(Context Switch)
 
@@ -176,8 +176,8 @@ stateDiagram-v2
 
 （关联阅读）
 
-- 线程同步/锁竞争如何放大切换与调度成本：[`concurrency.md`](concurrency.md)
-- 阻塞 I/O/多路复用如何影响“睡眠/唤醒”路径：[`io.md`](io.md)
+- 线程同步/锁竞争如何放大切换与调度成本：[Concurrency](concurrency.md)
+- 阻塞 I/O/多路复用如何影响“睡眠/唤醒”路径：[I/O Management](io.md)
 
 ## 8. Linux 调度实现与观测（补充）
 
@@ -239,6 +239,6 @@ stateDiagram-v2
 
 ## 相关阅读
 
-- [`concurrency.md`](concurrency.md)：线程同步原语、内存一致性模型、futex/RCU 等更偏“并发工程/系统实现”的内容
-- [`memory.md`](memory.md)：缺页异常与虚拟内存
-- [`io.md`](io.md)：阻塞/非阻塞与 I/O 多路复用
+- [Concurrency](concurrency.md)：线程同步原语、内存一致性模型、futex/RCU 等更偏“并发工程/系统实现”的内容
+- [Memory Management](memory.md)：缺页异常与虚拟内存
+- [I/O Management](io.md)：阻塞/非阻塞与 I/O 多路复用

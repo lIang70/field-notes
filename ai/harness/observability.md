@@ -1,8 +1,8 @@
 # 可观测性 (Observability)
 
-> 本篇不重复 [`../agent.md`](../agent.md) 的"控制循环"和 [`../multi_agent.md`](../multi_agent.md) 的"编排模式"；本篇聚焦 agent 系统**作为生产服务**时必须有的"观测基建"：日志结构、trace 协议、cost 追踪、失败归因、评测集转化。
+> 本篇不重复 [Agent](../agent.md) 的"控制循环"和 [多 Agent 编排](../multi_agent.md) 的"编排模式"；本篇聚焦 agent 系统**作为生产服务**时必须有的"观测基建"：日志结构、trace 协议、cost 追踪、失败归因、评测集转化。
 >
-> 日志的具体落点见 [`./control_loop.md`](./control_loop.md)；失败事件的字段约定见 [`./resilience.md`](./resilience.md)；trace 与 checkpoint 的关系见 [`./state.md`](./state.md)。
+> 日志的具体落点见 [控制循环](./control_loop.md)；失败事件的字段约定见 [韧性](./resilience.md)；trace 与 checkpoint 的关系见 [状态管理与 Checkpoint](./state.md)。
 
 ## TL;DR
 
@@ -153,7 +153,7 @@
 }
 ```
 
-> **`recoverable` 字段必填**——决定上层是 retry / replan / fail-fast。**`context_snapshot_hash`** 指向失败那一刻的 context 快照（不是全文，是 hash），方便离线 replay。详见 [`./resilience.md`](./resilience.md)。
+> **`recoverable` 字段必填**——决定上层是 retry / replan / fail-fast。**`context_snapshot_hash`** 指向失败那一刻的 context 快照（不是全文，是 hash），方便离线 replay。详见 [韧性](./resilience.md)。
 
 ## 5. Trace → Dataset：评测的"原料接口"
 
@@ -170,7 +170,7 @@
 - **每条 case 必带 `origin_trace_id`**：能反查"这道题来自哪次线上跑"，评测失败时直接跳回线上 trace 看完整上下文。
 - **保留 cost / latency**：把"成功但 cost 暴涨"的 case 也入库——这些是 regression 隐患。
 - **replay 接口**：从 (input, model) 重放一次，跑完和 origin trace 对比 trajectory；trajectory 不一致 = prompt 模板或模型行为漂移。
-- **同步给 eval 平台**：pipeline 和 [`../evals.md`](../evals.md) §评测驱动开发 的 CI 串起来，每次 prompt 改动先在"上周真实失败集"上跑一遍。
+- **同步给 eval 平台**：pipeline 和 [评测](../evals.md) §评测驱动开发 的 CI 串起来，每次 prompt 改动先在"上周真实失败集"上跑一遍。
 
 > 评测集不是"建好就完了"——它是**从线上 trace 持续生长**的。没有 trace 就没有"真实问题"，没有"真实问题"的评测集是真空中的分数。
 
@@ -198,7 +198,7 @@ GROUP BY agent.name ORDER BY total_cost DESC LIMIT 10;
 
 `cost_per_output_token` 是高信号指标——高 cost + 低 output 比例 = 模型"话多"或 prompt 浪费；高 cost + 高 output 比例 = 任务本身就要写很多。
 
-> **进一步**：和 [`../multi_agent.md`](../multi_agent.md) §11 的 trajectory 评测联动——cost 高的 agent 是不是**也**是失败率高的 agent？高 cost + 高失败率 = 这个 agent 既贵又没用，是优化的第一目标。
+> **进一步**：和 [多 Agent 编排](../multi_agent.md) §11 的 trajectory 评测联动——cost 高的 agent 是不是**也**是失败率高的 agent？高 cost + 高失败率 = 这个 agent 既贵又没用，是优化的第一目标。
 
 ## 7. 反直觉与工程建议
 
@@ -214,10 +214,10 @@ GROUP BY agent.name ORDER BY total_cost DESC LIMIT 10;
 
 ## 相关链接
 
-- [`../evals.md`](../evals.md)：评测体系；如何消费 trace 作为评测集"原料"
-- [`../multi_agent.md`](../multi_agent.md)：多 agent 维度的成本拆分；trajectory 评测
-- [`./control_loop.md`](./control_loop.md)：每步调用的日志落点
-- [`./resilience.md`](./resilience.md)：失败事件的日志格式与重试 / Replan 分类
-- [`./state.md`](./state.md)：trace 与 checkpoint 的关系；resume 时如何拼回 trace 链
-- [`../context_engineering.md`](../context_engineering.md)：长上下文的成本与缓存——cost 维度的上游
-- [`../tools.md`](../tools.md)：tool 调用如何在 trace 里落地
+- [评测](../evals.md)：评测体系；如何消费 trace 作为评测集"原料"
+- [多 Agent 编排](../multi_agent.md)：多 agent 维度的成本拆分；trajectory 评测
+- [控制循环](./control_loop.md)：每步调用的日志落点
+- [韧性](./resilience.md)：失败事件的日志格式与重试 / Replan 分类
+- [状态管理与 Checkpoint](./state.md)：trace 与 checkpoint 的关系；resume 时如何拼回 trace 链
+- [上下文工程](../context_engineering.md)：长上下文的成本与缓存——cost 维度的上游
+- [工具使用](../tools.md)：tool 调用如何在 trace 里落地

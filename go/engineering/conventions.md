@@ -1,6 +1,6 @@
 # Go 工程约定（分层项目里的细节清单）
 
-> 前面两篇讲结构（[`../architecture/layering.md`](../architecture/layering.md)、[`../architecture/craft_abi.md`](../architecture/craft_abi.md)），这篇只记"写代码时反复用到的那些决定"。
+> 前面两篇讲结构（[分层与扩展点](../architecture/layering.md)、[Craft ABI 与插件宿主](../architecture/craft_abi.md)），这篇只记"写代码时反复用到的那些决定"。
 > 都是踩过之后固化的，不是风格偏好。
 
 ## TL;DR
@@ -52,7 +52,7 @@ return defaultAssemble(ctx, req)
 
 - **`go.work` 分成两个结论**：多模块仓（flowcraft 那种十几个 module）把它当工作区入口**提交**，CI 才能整仓构建；单模块仓（opencraft）只需要 `go.work.sum`，本地联调用 `replace` 临时加、提交前删。
 - **"看起来很通用"的包要敢删**：泛型 actor、无人使用的 helper 层，占着 API 表面就是负债。
-- 多模块的发布顺序见 [`release.md`](release.md)。
+- 多模块的发布顺序见 [多模块发布与发布工程](release.md)。
 
 ## 6. 双树（Go + Rust 同语义）
 
@@ -73,9 +73,9 @@ return defaultAssemble(ctx, req)
 
 ## 相关链接
 
-- [`../architecture/layering.md`](../architecture/layering.md)（结构从哪来）
-- [`release.md`](release.md)（多模块发布）
-- [`testing.md`](testing.md)（上面那些约定怎么被测试守住）
-- [`observability.md`](observability.md)（错误与原因枚举怎么进日志）
-- [`optimization.md`](optimization.md)（这些约定在性能治理里怎么体现）
-- [`../language/interface_reflection.md`](../language/interface_reflection.md)
+- [分层与扩展点](../architecture/layering.md)（结构从哪来）
+- [多模块发布与发布工程](release.md)（多模块发布）
+- [测试布局](testing.md)（上面那些约定怎么被测试守住）
+- [可观测性](observability.md)（错误与原因枚举怎么进日志）
+- [桌面 agent 的性能治理](optimization.md)（这些约定在性能治理里怎么体现）
+- [Interface & Reflection](../language/interface_reflection.md)

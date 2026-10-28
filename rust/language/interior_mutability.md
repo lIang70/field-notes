@@ -44,7 +44,7 @@ let a = cell.borrow();        // 共享借用
 
 - 编译期错误变成运行时 panic，所以**只在你能证明"借用很短、不会重入"时用**。
 - 在 async 代码里尤其危险：`let g = cell.borrow_mut();` 之后 `.await`，别的任务再借就 panic——而且 panic 位置离根因很远。
-- 需要"跨 await 的可变访问"时，用 `tokio::sync::Mutex`（见 [`../runtime/tokio.md`](../runtime/tokio.md) §4），别用 `RefCell`。
+- 需要"跨 await 的可变访问"时，用 `tokio::sync::Mutex`（见 [tokio 实战：watch / broadcast / 世代切换 / 锁的选择](../runtime/tokio.md) §4），别用 `RefCell`。
 
 ## 4. `Mutex` / `RwLock` 的边界
 
@@ -82,7 +82,7 @@ T: Sync   &T 可以跨线程共享
 
 ## 相关链接
 
-- [`ownership.md`](ownership.md)（借用检查为什么会把状态推向内部可变性）
-- [`../runtime/tokio.md`](../runtime/tokio.md)（跨 `await` 的锁怎么选、`watch` 为什么常比锁好用）
-- [`traits.md`](traits.md)（`Arc<dyn Trait>` 的共享形态）
-- [`../engineering/bounds.md`](../engineering/bounds.md)（被锁保护的那些表为什么都要有上限）
+- [所有权 / 借用 / 生命周期](ownership.md)（借用检查为什么会把状态推向内部可变性）
+- [tokio 实战：watch / broadcast / 世代切换 / 锁的选择](../runtime/tokio.md)（跨 `await` 的锁怎么选、`watch` 为什么常比锁好用）
+- [trait / 泛型 / 动态分发](traits.md)（`Arc<dyn Trait>` 的共享形态）
+- [有界容器](../engineering/bounds.md)（被锁保护的那些表为什么都要有上限）

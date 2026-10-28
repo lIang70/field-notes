@@ -55,7 +55,7 @@
 
 ## 相关链接
 
-- [`../architecture/layering.md`](../architecture/layering.md)（被发布的这些层是什么）
-- [`conventions.md`](conventions.md)（`go.work`、依赖纪律）
-- [`../../ai/inference_serving.md`](../../ai/inference_serving.md)（required check 那段的另一侧实践）
-- [`optimization.md`](optimization.md)（同一个项目的性能基线脚本怎么进 CI）
+- [分层与扩展点](../architecture/layering.md)（被发布的这些层是什么）
+- [Go 工程约定](conventions.md)（`go.work`、依赖纪律）
+- [自建推理服务](../../ai/inference_serving.md)（required check 那段的另一侧实践）
+- [桌面 agent 的性能治理](optimization.md)（同一个项目的性能基线脚本怎么进 CI）

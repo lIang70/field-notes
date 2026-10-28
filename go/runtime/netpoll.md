@@ -29,7 +29,7 @@ Go 走的是后者：API 像 Java 的 `InputStream.read`，但底层像 epoll �
 
 - Go 1.0 之前的 `sched` 调度器在 `select` 语句上做调度，G 的阻塞通过 `select` 内部实现。
 - **缺点**：调度器自身是单线程，全局锁竞争严重；fd 模型与调度耦合得也很紧。
-- 详见 [`scheduler.md`](scheduler.md) 中关于旧调度器退场的部分。
+- 详见 [Go Scheduler](scheduler.md) 中关于旧调度器退场的部分。
 
 ### 2. 引入 `runtime/netpoll` 抽象层
 
@@ -39,7 +39,7 @@ Go 走的是后者：API 像 Java 的 `InputStream.read`，但底层像 epoll �
 
 ### 3. Go 1.5+ GMP + 非阻塞 I/O 整合
 
-- GMP 重构（详见 [`scheduler.md`](scheduler.md)）后，G 的阻塞语义被收敛到 `_Gwaiting` 状态。
+- GMP 重构（详见 [Go Scheduler](scheduler.md)）后，G 的阻塞语义被收敛到 `_Gwaiting` 状态。
 - I/O 阻塞与 channel 阻塞、锁等待的"park/unpark"机制统一了：
   - 入口：`gopark` 把 G 从 `_Grunning` 切到 `_Gwaiting`，释放当前 M/P。
   - 出口：`goready` 把 G 放回 run queue，从 `_Gwaiting` 切回 `_Grunnable`。
@@ -158,7 +158,7 @@ func netpollblock(pd *pollDesc, mode int) {
 
 正常情况下 G 由 `go` 语句、channel 操作、锁等"应用层事件"调度。netpoll 提供了一个"系统级事件"入口：
 
-- `sysmon` 后台线程会周期性 `netpoll(timeout)`（很短），主动把就绪事件拉起来（见 [`scheduler.md`](scheduler.md) 的 sysmon 小节）。
+- `sysmon` 后台线程会周期性 `netpoll(timeout)`（很短），主动把就绪事件拉起来（见 [Go Scheduler](scheduler.md) 的 sysmon 小节）。
 - GC 期间等场景也会调 `netpoll` 顺便处理就绪事件。
 - 也就是说：**即便没有 G 主动让出，sysmon 也能把就绪 I/O 对应的 G 拉回 run queue**，这是 Go 调度器"无回调"的关键。
 
@@ -178,15 +178,15 @@ func netpollblock(pd *pollDesc, mode int) {
 - **fd 上限**：每个连接占一个 fd。受限于 `ulimit -n`、进程级 `RLIMIT_NOFILE`、以及 Linux 的 `fs.nr_open` / `fs.file-max`。业务量大时务必调高。
 - **goroutine 数量**：本身不是问题，问题是每个 goroutine 持有的栈（虽然 2KB 起，逃逸/扩容后会涨）和它对应的 `pollDesc` / 等待队列开销。
 - **慢连接/慢请求**：恶意或异常的客户端不读/不写，会让 goroutine 长期 `_Gwaiting` 堆积。服务端用 `http.Server` 的 `ReadTimeout` / `WriteTimeout`；客户端 `http.Transport` 侧是 `DialContext` 超时 / `ResponseHeaderTimeout` / `IdleConnTimeout`。
-- **限并发**：即便用 goroutine 也要"限并发"，见 [`../concurrency/concurrency_patterns.md`](../concurrency/concurrency_patterns.md) 的 semaphore / worker pool。
+- **限并发**：即便用 goroutine 也要"限并发"，见 [Go Concurrency Patterns](../concurrency/concurrency_patterns.md) 的 semaphore / worker pool。
 
 > 调优建议：用 `lsof -p <pid> | wc -l` 看 fd 数；用 `pprof` 的 goroutine profile 看实际堆积的 G。
 
 ## 相关链接
 
-- [`scheduler.md`](scheduler.md)：GMP、`gopark`/`goready`、`sysmon`。
-- [`gc.md`](gc.md)：G 阻塞在 I/O 上时不会影响 GC（GC 关心的是 goroutine 的栈与堆对象关系）。
-- [`memory_allocator.md`](memory_allocator.md)：连接对象（`FD` / `pollDesc`）的分配走 mcache/mcentral。
-- [`write_barrier.md`](write_barrier.md)：并发 GC 与 I/O 本身无关，但栈扫描会扫到"正在等 I/O"的 G。
-- [`../os/io.md`](../../os/io.md)：底层 epoll/select/poll 的语义（Go 屏蔽了这些）。
-- [`../concurrency/concurrency_patterns.md`](../concurrency/concurrency_patterns.md)：goroutine 限并发、退出、泄漏防护。
+- [Go Scheduler](scheduler.md)：GMP、`gopark`/`goready`、`sysmon`。
+- [GC](gc.md)：G 阻塞在 I/O 上时不会影响 GC（GC 关心的是 goroutine 的栈与堆对象关系）。
+- [Go Memory Allocator](memory_allocator.md)：连接对象（`FD` / `pollDesc`）的分配走 mcache/mcentral。
+- [Write Barriers](write_barrier.md)：并发 GC 与 I/O 本身无关，但栈扫描会扫到"正在等 I/O"的 G。
+- [I/O Management](../../os/io.md)：底层 epoll/select/poll 的语义（Go 屏蔽了这些）。
+- [Go Concurrency Patterns](../concurrency/concurrency_patterns.md)：goroutine 限并发、退出、泄漏防护。

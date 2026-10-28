@@ -48,7 +48,7 @@ pub enum ErrorKind {
 
 - 14 类的名单在一个地方（Rust 的 `taxonomy.rs` / Go 的 `errdefs`），两边各有测试断言"类目集合一致、映射关系不重不漏"。
 - 分类改动的 review checklist：**是否两边都改、wire 是否兼容、映射测试是否更新**。
-- 双树的其它约定见 [`../../go/engineering/conventions.md`](../../go/engineering/conventions.md) §6。
+- 双树的其它约定见 [Go 工程约定](../../go/engineering/conventions.md) §6。
 
 ## 5. 反模式
 
@@ -67,7 +67,7 @@ pub enum ErrorKind {
 
 ## 相关链接
 
-- [`../architecture/workspace.md`](../architecture/workspace.md)（模块图里 `error` 在最底层，谁都依赖它）
-- [`../architecture/unsafe_boundary.md`](../architecture/unsafe_boundary.md)（系统调用错误怎么进分类）
-- [`bounds.md`](bounds.md)（拒绝类错误与资源上限的关系）
-- [`../../go/engineering/conventions.md`](../../go/engineering/conventions.md)（Go 侧的 `errdefs`、双树同修）
+- [Rust workspace 的形状](../architecture/workspace.md)（模块图里 `error` 在最底层，谁都依赖它）
+- [unsafe 的边界：一个 crate 专门收着](../architecture/unsafe_boundary.md)（系统调用错误怎么进分类）
+- [有界容器](bounds.md)（拒绝类错误与资源上限的关系）
+- [Go 工程约定](../../go/engineering/conventions.md)（Go 侧的 `errdefs`、双树同修）

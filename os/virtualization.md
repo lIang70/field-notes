@@ -1,7 +1,7 @@
 # 虚拟化与容器 (Virtualization & Container)
 
 这一篇聚焦两个层级的“隔离/虚拟化”机制：硬件级虚拟化（VM/KVM/QEMU）与操作系统级虚拟化（容器）。  
-进程/线程基础看 [`process.md`](process.md)，文件/IO 抽象看 [`io.md`](io.md) 与 [`filesystem.md`](filesystem.md)。
+进程/线程基础看 [Process](process.md)，文件/IO 抽象看 [I/O Management](io.md) 与 [File System](filesystem.md)。
 
 ## TL;DR
 
@@ -224,8 +224,8 @@ runc run mycontainer
 
 ## 相关阅读
 
-- [`process.md`](process.md)：进程基础、调度器与上下文切换
-- [`io.md`](io.md)：I/O 多路复用与零拷贝
-- [`memory.md`](memory.md)：虚拟内存与缺页异常
-- [`filesystem.md`](filesystem.md)：VFS/挂载点
-- [`concurrency.md`](concurrency.md)：cgroup/资源限制在并发场景的副作用
+- [Process](process.md)：进程基础、调度器与上下文切换
+- [I/O Management](io.md)：I/O 多路复用与零拷贝
+- [Memory Management](memory.md)：虚拟内存与缺页异常
+- [File System](filesystem.md)：VFS/挂载点
+- [Concurrency](concurrency.md)：cgroup/资源限制在并发场景的副作用

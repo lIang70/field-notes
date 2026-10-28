@@ -47,7 +47,7 @@ undocumented_unsafe_blocks = "deny"
 - **token / 完整性标签**：受限令牌、低完整性级别、AppContainer profile。
 - **WFP（规划中，尚未落地）**：计划按包 SID 在 bind 层装过滤器。目前这个 crate 只有 job / process / pty / token / acl 五个模块，网络策略还在 Go 侧。
 
-机制本身（哪个隔离层在哪一步生效）写在 [`../../os/sandbox.md`](../../os/sandbox.md)；这里只关心 Rust 侧的组织方式。
+机制本身（哪个隔离层在哪一步生效）写在 [沙箱与进程隔离](../../os/sandbox.md)；这里只关心 Rust 侧的组织方式。
 
 ## 3. 写在块上的约定
 
@@ -79,7 +79,7 @@ unsafe { SetInformationJobObject(job, info_class, ptr.cast(), size) }?;
 
 ## 相关链接
 
-- [`workspace.md`](workspace.md)（crate 划分与 lint 继承）
-- [`../../os/sandbox.md`](../../os/sandbox.md)（Job Object / AppContainer / WFP 的机制与坑）
-- [`../engineering/errors.md`](../engineering/errors.md)（系统调用错误怎么进分类体系）
-- [`../../go/engineering/conventions.md`](../../go/engineering/conventions.md)（Go 侧对应的"扇出边界 recover"一类约定）
+- [Rust workspace 的形状](workspace.md)（crate 划分与 lint 继承）
+- [沙箱与进程隔离](../../os/sandbox.md)（Job Object / AppContainer / WFP 的机制与坑）
+- [错误分类](../engineering/errors.md)（系统调用错误怎么进分类体系）
+- [Go 工程约定](../../go/engineering/conventions.md)（Go 侧对应的"扇出边界 recover"一类约定）

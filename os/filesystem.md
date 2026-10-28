@@ -49,4 +49,4 @@ graph TD
 
 ## 存储/块设备相关（已移动）
 
-`磁盘调度/RAID/IOPS` 更贴近 I/O/存储主题，已移动到 [`io.md`](io.md)。
+`磁盘调度/RAID/IOPS` 更贴近 I/O/存储主题，已移动到 [I/O Management](io.md)。

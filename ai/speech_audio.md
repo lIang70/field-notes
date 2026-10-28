@@ -1,7 +1,7 @@
 # 语音与音频链路（实时 + 离线）
 
 > 两条线：实时对话语音（RTC → ASR → LLM → TTS）和离线批处理（VAD → 说话人分离 → ASR → 声纹身份）。
-> 服务侧容量账在 [`inference_serving.md`](inference_serving.md)，评测方法论在 [`evals.md`](evals.md)。
+> 服务侧容量账在 [自建推理服务](inference_serving.md)，评测方法论在 [评测](evals.md)。
 
 ## TL;DR
 
@@ -32,7 +32,7 @@
 - 叙事（scene）和情绪（story）是两个正交层，混在一个 prompt 里会互相污染输出格式。
 - 生成内容的语言按 locale profile 解析，不要硬编码单语言。
 - 人格用 OCEAN 漂移建模，漂移要有上界和回归力，否则长会话会漂成另一个角色。
-- 长会话靠分层注入 + 时间衰减，注入位置比注入量更重要（见 [`context_engineering.md`](context_engineering.md)）。
+- 长会话靠分层注入 + 时间衰减，注入位置比注入量更重要（见 [上下文工程](context_engineering.md)）。
 
 ## 3. 离线流水线
 
@@ -95,7 +95,7 @@ unknown    分数 < 低阈值            新人物，进待审核队列
 
 ## 相关链接
 
-- [`inference_serving.md`](inference_serving.md)（TTS 服务的容量账与运维账）
-- [`evals.md`](evals.md)（指标定义、评测集设计、承认下界的写法）
-- [`context_engineering.md`](context_engineering.md)（长会话记忆注入的位置效应）
-- [`memory.md`](memory.md)（分层注入与时间衰减）
+- [自建推理服务](inference_serving.md)（TTS 服务的容量账与运维账）
+- [评测](evals.md)（指标定义、评测集设计、承认下界的写法）
+- [上下文工程](context_engineering.md)（长会话记忆注入的位置效应）
+- [AI 记忆系统](memory.md)（分层注入与时间衰减）

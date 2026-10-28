@@ -36,7 +36,7 @@ test-core-windows    test-craft-windows
 ```
 
 - 平台 lane 的价值在"回归能被复现"：没有 Windows lane，`HOME` 假设那类测试会成片红在用户机器上，而不是 CI 上。
-- **`ci-pass` 是个聚合作业**：`if: always()` + `needs` 全列，分支保护只要求它一个。它自己判断"上游有任何一个失败/取消就失败"。这样改 workflow 内部结构不影响保护规则（发布侧的交待见 [`release.md`](release.md) §4）。
+- **`ci-pass` 是个聚合作业**：`if: always()` + `needs` 全列，分支保护只要求它一个。它自己判断"上游有任何一个失败/取消就失败"。这样改 workflow 内部结构不影响保护规则（发布侧的交待见 [多模块发布与发布工程](release.md) §4）。
 - **作业名就是 required check 的 context**：这条依旧成立——但挂了聚合门之后，只有 `ci-pass` 的名字是稳定 API。
 
 ## 3. 动态矩阵
@@ -59,7 +59,7 @@ test-core-windows    test-craft-windows
 
 - `Benchmark` 只报数，不判定——**判定靠"性质测试"**：分配次数为 0、索引结构是扁平的、裁剪前后恢复等价、旧对象可回收。
 - 分配计数门禁：`testing.AllocsPerRun` 或 `ReportAllocs` + 阈值，钉住"这条路径不再新增分配"。
-- 性能基线脚本（跨进程、跨渲染器）单独存在，CI 里跳过并注明"构建机时序不是基线"（脚本形态见 [`optimization.md`](optimization.md) §0）。
+- 性能基线脚本（跨进程、跨渲染器）单独存在，CI 里跳过并注明"构建机时序不是基线"（脚本形态见 [桌面 agent 的性能治理](optimization.md) §0）。
 
 实际长成的样子（都真实存在，改名或删掉就会红）：
 
@@ -91,8 +91,8 @@ test-core-windows    test-craft-windows
 
 ## 相关链接
 
-- [`conventions.md`](conventions.md)（错误分类、可选接口——测试要覆盖默认路径）
-- [`release.md`](release.md)（required check 与聚合门）
-- [`optimization.md`](optimization.md)（上面那些性态测试到底在守哪一轮优化，§5 有全景）
-- [`../runtime/pprof.md`](../runtime/pprof.md)（profile 定位、测试守门）
-- [`observability.md`](observability.md)（trace → offline dataset，测试与线上共用一套用例）
+- [Go 工程约定](conventions.md)（错误分类、可选接口——测试要覆盖默认路径）
+- [多模块发布与发布工程](release.md)（required check 与聚合门）
+- [桌面 agent 的性能治理](optimization.md)（上面那些性态测试到底在守哪一轮优化，§5 有全景）
+- [pprof 与性能读法](../runtime/pprof.md)（profile 定位、测试守门）
+- [可观测性](observability.md)（trace → offline dataset，测试与线上共用一套用例）

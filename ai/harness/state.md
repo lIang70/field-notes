@@ -1,7 +1,7 @@
 # 状态管理与 Checkpoint（State & Checkpoint）
 
-> 本篇是 [`../agent.md`](../agent.md)（agent 闭环）和 [`../multi_agent.md`](../multi_agent.md)（多 agent 拓扑）之外的**第三维**：让 agent 真的"不丢活"——进程挂了能 resume、副作用不会重发、轨迹可回放。  
-> 多 agent 状态管理的**拓扑**层面（共享 / 总线 / 显式传递）见 [`../multi_agent.md`](../multi_agent.md) §4；checkpoint 作为**拓扑属性**的工程含义见该篇 §6.3。Memory 系统（mem0 / Letta / LangMem）见 [`../memory.md`](../memory.md)；进程崩溃后由谁负责 resume 见 [`./lifecycle.md`](lifecycle.md)。
+> 本篇是 [Agent](../agent.md)（agent 闭环）和 [多 Agent 编排](../multi_agent.md)（多 agent 拓扑）之外的**第三维**：让 agent 真的"不丢活"——进程挂了能 resume、副作用不会重发、轨迹可回放。  
+> 多 agent 状态管理的**拓扑**层面（共享 / 总线 / 显式传递）见 [多 Agent 编排](../multi_agent.md) §4；checkpoint 作为**拓扑属性**的工程含义见该篇 §6.3。Memory 系统（mem0 / Letta / LangMem）见 [AI 记忆系统](../memory.md)；进程崩溃后由谁负责 resume 见 [Agent 生命周期与 Harness 承载](lifecycle.md)。
 
 ## TL;DR
 
@@ -23,14 +23,14 @@ State 的边界**就是进程边界 + 显式终止信号**。判断一个东西"
 - **In-flight（不落）**：当前 LLM 调用的 prompt / streaming chunk / tool call 中间产物——**活的 step 不要序列化**。
 - **Session 内（resume 要）**：conversation、scratchpad（计划 / 已读文件 / 中间结论）。Scratchpad 看起来"在内存里就行"，但 resume 后 agent 必须**在不知道之前想什么的状态下重启**——这等于让模型从零开始重新推理一遍。**没有 scratchpad 的 checkpoint 是废的**。
 - **一次 run + 之后（强一致）**：trajectory（每步哪个 tool / 什么参数 / 什么结果 / 多少 token）、side-effect log（已发请求的 idempotency_key + 结果）。
-- **跨 session / 跨 user**：task plan（FSM 节点 / 子任务完成度）、long-term memory（见 [`../memory.md`](../memory.md)）。
+- **跨 session / 跨 user**：task plan（FSM 节点 / 子任务完成度）、long-term memory（见 [AI 记忆系统](../memory.md)）。
 
 ## 2) Checkpoint 策略
 
 ### 2.1 触发频率
 
 - **每步落**：最安全、最慢、噪声最大；除非你要做"步步可重放"的研究系统，否则不推荐。
-- **关键决策点落**（推荐默认）：进入新 FSM 节点、跨工具调用、跨网络副作用前、可逆性边界（创建资源前）——见 [`./control_loop.md`](control_loop.md) 何时触发落盘。
+- **关键决策点落**（推荐默认）：进入新 FSM 节点、跨工具调用、跨网络副作用前、可逆性边界（创建资源前）——见 [控制循环](control_loop.md) 何时触发落盘。
 - **定时器落**：后台 agent、长挂起任务、跨分钟 / 小时的流程——每隔 N 秒 / N 步兜底一次。
 - **混合**：决策点为主 + 定时器兜底 + 每步只写 trace 不写 snapshot。
 
@@ -90,7 +90,7 @@ CREATE TABLE checkpoints (
 
 > 很多 harness 失败时让 agent "从头思考"——这等于丢弃了所有中间推理，**等价于把整个 task 重新跑一遍**，成本是 O(N) 而不是 O(剩余步骤)。正确的 resume 是 O(剩余) 起步：第 47 步挂了，resume 后从第 47 步继续，而不是从第 1 步。
 
-崩溃后**由谁负责触发 resume**——子进程看门狗、scheduler、k8s liveness、还是用户手动——是 [`./lifecycle.md`](lifecycle.md) 的事，不是 state.md 的事。
+崩溃后**由谁负责触发 resume**——子进程看门狗、scheduler、k8s liveness、还是用户手动——是 [Agent 生命周期与 Harness 承载](lifecycle.md) 的事，不是 state.md 的事。
 
 ## 4) 副作用幂等：幂等三件套
 
@@ -175,8 +175,8 @@ def execute_side_effect(step_id, action):
 - **可观测**：单 agent 一条轨迹即可；多 agent 需按 agent 维度拆分 trace，否则归因变难。
 - **典型反模式**：单 agent 把"对话历史"当 state（污染）；多 agent 把"当前网页内容"塞进共享 state（注入放大版）。
 
-> **多 agent 共享 state 看起来"方便"，实际最容易污染**——所有 agent 看见所有内容 = 提示注入风险 ×N。**外部材料只能进消息流 / context，不能进 shared state**（见 [`../multi_agent.md`](../multi_agent.md) §10）。  
-> 多 agent 状态管理**模型**（共享 / 总线 / 显式传递）见 [`../multi_agent.md`](../multi_agent.md) §4，本节只讨论**存储差异**。
+> **多 agent 共享 state 看起来"方便"，实际最容易污染**——所有 agent 看见所有内容 = 提示注入风险 ×N。**外部材料只能进消息流 / context，不能进 shared state**（见 [多 Agent 编排](../multi_agent.md) §10）。  
+> 多 agent 状态管理**模型**（共享 / 总线 / 显式传递）见 [多 Agent 编排](../multi_agent.md) §4，本节只讨论**存储差异**。
 
 ## 8) 反直觉点（小结）
 
@@ -204,10 +204,10 @@ def execute_side_effect(step_id, action):
 
 ## 相关链接
 
-- [`../multi_agent.md`](../multi_agent.md) — 多 agent 状态管理的拓扑层（共享 / 总线 / 显式传递 3 种模型；checkpoint 作为拓扑属性的工程含义见 §6.3）
-- [`../memory.md`](../memory.md) — 长期 memory（mem0 / Letta / LangMem 等）与 checkpoint 的边界：memory 是"知识累积"，checkpoint 是"运行状态"
-- [`./control_loop.md`](control_loop.md) — 何时触发落盘（关键决策点判定、定时器间隔、步间契约）
-- [`./resilience.md`](resilience.md) — 重试时 state 回滚（错误分类、replan 与 checkpoint 的关系）
-- [`./lifecycle.md`](lifecycle.md) — 进程崩溃后由谁负责 resume（看门狗、scheduler、cancel 传播）
-- [`../agent.md`](../agent.md) — 单 agent 闭环，state 是其"世界状态"子模块
-- [`../evals.md`](../evals.md) — checkpoint / resume 路径本身要进回归集（"杀进程后能恢复"是可测的）
+- [多 Agent 编排](../multi_agent.md) — 多 agent 状态管理的拓扑层（共享 / 总线 / 显式传递 3 种模型；checkpoint 作为拓扑属性的工程含义见 §6.3）
+- [AI 记忆系统](../memory.md) — 长期 memory（mem0 / Letta / LangMem 等）与 checkpoint 的边界：memory 是"知识累积"，checkpoint 是"运行状态"
+- [控制循环](control_loop.md) — 何时触发落盘（关键决策点判定、定时器间隔、步间契约）
+- [韧性](resilience.md) — 重试时 state 回滚（错误分类、replan 与 checkpoint 的关系）
+- [Agent 生命周期与 Harness 承载](lifecycle.md) — 进程崩溃后由谁负责 resume（看门狗、scheduler、cancel 传播）
+- [Agent](../agent.md) — 单 agent 闭环，state 是其"世界状态"子模块
+- [评测](../evals.md) — checkpoint / resume 路径本身要进回归集（"杀进程后能恢复"是可测的）

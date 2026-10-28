@@ -21,7 +21,7 @@ tools/proto-gen      仓库工具：从 proto/ 生成 src/proto/generated/（pub
 ```
 
 - 库与守护进程分离，**"依赖库的只能是守护进程"这条也由测试检查**。
-- `flowcraft-win32` 在任何平台都能编译，非 Windows 上是空的——这样 workspace 构建不需要 Windows 主机（细节见 [`unsafe_boundary.md`](unsafe_boundary.md)）。
+- `flowcraft-win32` 在任何平台都能编译，非 Windows 上是空的——这样 workspace 构建不需要 Windows 主机（细节见 [unsafe 的边界：一个 crate 专门收着](unsafe_boundary.md)）。
 
 ## 2. 模块图：从 Cargo 强制变成测试强制
 
@@ -75,8 +75,8 @@ caps::*      → client
 
 ## 相关链接
 
-- [`unsafe_boundary.md`](unsafe_boundary.md)（为什么必须有一个"只放 unsafe"的 crate）
-- [`../engineering/errors.md`](../engineering/errors.md)（错误分类怎么与 Go 侧对齐）
-- [`../engineering/bounds.md`](../engineering/bounds.md)（这些模块里的容器为什么都带上限）
-- [`../../go/architecture/layering.md`](../../go/architecture/layering.md)（Go 侧同一套分层的形状）
-- [`../../go/architecture/craft_abi.md`](../../go/architecture/craft_abi.md)（守护进程对外暴露的就是这份 ABI）
+- [unsafe 的边界：一个 crate 专门收着](unsafe_boundary.md)（为什么必须有一个"只放 unsafe"的 crate）
+- [错误分类](../engineering/errors.md)（错误分类怎么与 Go 侧对齐）
+- [有界容器](../engineering/bounds.md)（这些模块里的容器为什么都带上限）
+- [分层与扩展点](../../go/architecture/layering.md)（Go 侧同一套分层的形状）
+- [Craft ABI 与插件宿主](../../go/architecture/craft_abi.md)（守护进程对外暴露的就是这份 ABI）

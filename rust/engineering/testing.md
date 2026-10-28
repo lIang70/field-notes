@@ -59,7 +59,7 @@ async fn assert_craft_abi(client: &CraftClient) { /* Describe/Start/Run/Steer/Re
 ```
 
 - 比在函数里 `if cfg!(windows) { return }` 好在：**Windows 上根本不会编译它**，也不会出现"跑过了但什么都没测"的假绿。
-- Windows 侧的对应能力由 `rust-windows` 这条 CI lane 覆盖（见 [`../../go/engineering/testing.md`](../../go/engineering/testing.md) §2 的聚合门）。
+- Windows 侧的对应能力由 `rust-windows` 这条 CI lane 覆盖（见 [测试布局](../../go/engineering/testing.md) §2 的聚合门）。
 - 平台差异一旦有实现，就把 `cfg` 从整文件缩到具体用例——`cfg` 放得越宽，漏测的面越大。
 
 ## 5. 时间与并发
@@ -85,7 +85,7 @@ async fn assert_craft_abi(client: &CraftClient) { /* Describe/Start/Run/Steer/Re
 
 ## 相关链接
 
-- [`../architecture/workspace.md`](../architecture/workspace.md)（`layering.rs` 守的那张模块图）
-- [`../runtime/tokio.md`](../runtime/tokio.md)（世代切换、`watch` 通知怎么测）
-- [`../../go/engineering/testing.md`](../../go/engineering/testing.md)（Go 侧的四层、平台矩阵、fuzz/soak、性质测试）
-- [`../engineering/bounds.md`](../engineering/bounds.md)（"有界"这一类约定的测试形态）
+- [Rust workspace 的形状](../architecture/workspace.md)（`layering.rs` 守的那张模块图）
+- [tokio 实战：watch / broadcast / 世代切换 / 锁的选择](../runtime/tokio.md)（世代切换、`watch` 通知怎么测）
+- [测试布局](../../go/engineering/testing.md)（Go 侧的四层、平台矩阵、fuzz/soak、性质测试）
+- [有界容器](../engineering/bounds.md)（"有界"这一类约定的测试形态）

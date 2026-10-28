@@ -1,6 +1,6 @@
 # Agent 生命周期与 Harness 承载
 
-> 上一篇 [`../multi_agent.md`](../multi_agent.md) 讲"多个 agent 怎么协作";本篇把镜头拉近一层,讲"**单个 agent 怎么活、怎么死、由谁承载**"。这一层常常被当成"基础设施细节"略过,实际是生产环境里**绝大多数稳定性 bug 的源头**。
+> 上一篇 [多 Agent 编排](../multi_agent.md) 讲"多个 agent 怎么协作";本篇把镜头拉近一层,讲"**单个 agent 怎么活、怎么死、由谁承载**"。这一层常常被当成"基础设施细节"略过,实际是生产环境里**绝大多数稳定性 bug 的源头**。
 
 ## TL;DR
 
@@ -28,7 +28,7 @@ start ─> [running] ─pause─> [paused] ─resume─> [running]
 ```
 
 - **start**: 分配 session ID、加载 state、绑定 token 配额、记录 trace ID
-- **running**: 进入主循环(Observe → Think → Act → Check,见 [`../agent.md`](../agent.md))
+- **running**: 进入主循环(Observe → Think → Act → Check,见 [Agent](../agent.md))
 - **paused**: 用户中断 / 等外部事件 / 配额冻结,state 落盘后释放运行时;可被 `resume` 唤醒
 - **draining**: 收到 SIGTERM / scale-in 事件,**不接新 turn**,跑完当前 turn 后落 checkpoint
 - **terminated**: 显式终止或超时回收,执行 cleanup
@@ -73,7 +73,7 @@ go func() {                          // L3: wait + 防止僵尸
 
 > **协议本身是数据格式;承载协议的是 harness 进程**。MCP 的 host / client 是 harness 起的;A2A 的服务端进程是 harness 跑的;agent 代码只看到 `call_tool(...)` / `send_task(...)` 的客户端 API。
 
-- **MCP(agent ↔ tool / resource)**:harness 启动 MCP client,与 tool server 走 stdio 或 **streamable HTTP**（HTTP+SSE 是 2025-03 之前的旧传输）;数据层是 JSON-RPC 2.0。`tools/list` / `resources/read` 由 harness 缓存并翻译给模型。详见 [`../tools.md`](../tools.md) 与 [`../multi_agent.md` §7.1](../multi_agent.md)。
+- **MCP(agent ↔ tool / resource)**:harness 启动 MCP client,与 tool server 走 stdio 或 **streamable HTTP**（HTTP+SSE 是 2025-03 之前的旧传输）;数据层是 JSON-RPC 2.0。`tools/list` / `resources/read` 由 harness 缓存并翻译给模型。详见 [工具使用](../tools.md) 与 [`../multi_agent.md` §7.1](../multi_agent.md)。
 - **A2A(agent ↔ agent)**:每个 agent 对外暴露 A2A 端点(也是 harness 起的 HTTP server),用 Agent Card(`/.well-known/agent.json`)做发现,task state machine 做生命周期。详见 [`../multi_agent.md` §7.2](../multi_agent.md)。
 - **AG-UI(agent ↔ UI)**:harness 暴露 SSE / WebSocket,前端按约 16 种事件类型订阅;transport 无关。
 
@@ -102,7 +102,7 @@ GET /sessions/id ─>  API  ─>  store.read  ─>  SSE / WS stream progress
 - **进度 push**(SSE / WS / webhook)而不是 poll
 - **取消在 store 标记** + worker 周期性检查 `ctx.Done()`;不是"客户端断网就杀"
 
-详见 [`./io.md`](./io.md)(长时任务的进度与中断)和 [`./state.md`](./state.md)(lifecycle 事件与 checkpoint)。
+详见 [Harness I/O：流式 / 中断 / HITL / 通道](./io.md)(长时任务的进度与中断)和 [状态管理与 Checkpoint](./state.md)(lifecycle 事件与 checkpoint)。
 
 ## 5. 调度器视角:把 agent 装进调度系统
 
@@ -210,8 +210,8 @@ A2A 协议把"跨进程的 agent 任务"标准化成一套状态机。**这套�
 
 ## 相关链接
 
-- [`../multi_agent.md`](../multi_agent.md):协议层(MCP / A2A / AG-UI);4 大编排模式;Agent-as-Tool
-- [`../tools.md`](../tools.md):MCP 与 tool / resource 协议的细节
-- [`./sandbox.md`](./sandbox.md):进程级隔离的资源限制(cgroup / seccomp / namespace)
-- [`./state.md`](./state.md):lifecycle 事件与 checkpoint 的关系,state 落盘与回放
-- [`./io.md`](./io.md):长时任务的进度推送与中断恢复
+- [多 Agent 编排](../multi_agent.md):协议层(MCP / A2A / AG-UI);4 大编排模式;Agent-as-Tool
+- [工具使用](../tools.md):MCP 与 tool / resource 协议的细节
+- [沙箱与权限执行](./sandbox.md):进程级隔离的资源限制(cgroup / seccomp / namespace)
+- [状态管理与 Checkpoint](./state.md):lifecycle 事件与 checkpoint 的关系,state 落盘与回放
+- [Harness I/O：流式 / 中断 / HITL / 通道](./io.md):长时任务的进度推送与中断恢复

@@ -1,7 +1,7 @@
 # 韧性 (Resilience)
 
 > 这篇讲**单步级的失败处理**——retry、timeout、限流、fallback、循环检测。  
-> 不重复 [`../agent.md`](../agent.md) 里的失败模式分类（那是"系统为什么会挂"的视角），也不重复 [`../multi_agent.md`](../multi_agent.md) §9 的 Replan（那是"上层重规划"），更不重复 [`../context_engineering.md`](../context_engineering.md) 的压缩算法——本篇只讲**算法之外的触发条件与回退**。
+> 不重复 [Agent](../agent.md) 里的失败模式分类（那是"系统为什么会挂"的视角），也不重复 [多 Agent 编排](../multi_agent.md) §9 的 Replan（那是"上层重规划"），更不重复 [上下文工程](../context_engineering.md) 的压缩算法——本篇只讲**算法之外的触发条件与回退**。
 
 ## TL;DR
 
@@ -149,7 +149,7 @@ def backoff(attempt: int, base: float = 0.5, cap: float = 30.0) -> float:
 
 ## 8. Context 溢出:触发与回退
 
-> 压缩算法本身(LLMLingua / Compaction / 编辑)在 [`../context_engineering.md`](../context_engineering.md)。本节只讲**触发条件**和**压缩失败时的回退**。
+> 压缩算法本身(LLMLingua / Compaction / 编辑)在 [上下文工程](../context_engineering.md)。本节只讲**触发条件**和**压缩失败时的回退**。
 
 触发条件(满足任一即触发):
 
@@ -180,10 +180,10 @@ def backoff(attempt: int, base: float = 0.5, cap: float = 30.0) -> float:
 
 ## 相关链接
 
-- [`../agent.md`](../agent.md):失败模式的概念分类(计划错 / 执行错 / 卡循环 / context 污染)
-- [`../context_engineering.md`](../context_engineering.md):压缩与摘要的**算法本身**(LLMLingua / Compaction / tool result clearing),本篇只讲**触发与回退**
-- [`../multi_agent.md`](../multi_agent.md) §9:多 agent 场景的 Replan / Checkpoint / HITL,本篇是**单步级**
-- [`./control_loop.md`](control_loop.md):重试在控制循环里的落点(哪一步失败 → 哪一步重试 → 与 stop rule 怎么配合)
-- [`./state.md`](state.md):重试时**state 怎么回滚**(哪些字段保留、哪些回到上一稳定点)
-- [`./observability.md`](observability.md):失败事件的**结构化日志格式**(error_class / attempt / retry_after / model_id)与 cost 维度拆分
-- [`./io.md`](io.md):HITL 触发的运行时(用户 30 分钟不回 → 默认行为)
+- [Agent](../agent.md):失败模式的概念分类(计划错 / 执行错 / 卡循环 / context 污染)
+- [上下文工程](../context_engineering.md):压缩与摘要的**算法本身**(LLMLingua / Compaction / tool result clearing),本篇只讲**触发与回退**
+- [多 Agent 编排](../multi_agent.md) §9:多 agent 场景的 Replan / Checkpoint / HITL,本篇是**单步级**
+- [控制循环](control_loop.md):重试在控制循环里的落点(哪一步失败 → 哪一步重试 → 与 stop rule 怎么配合)
+- [状态管理与 Checkpoint](state.md):重试时**state 怎么回滚**(哪些字段保留、哪些回到上一稳定点)
+- [可观测性](observability.md):失败事件的**结构化日志格式**(error_class / attempt / retry_after / model_id)与 cost 维度拆分
+- [Harness I/O：流式 / 中断 / HITL / 通道](io.md):HITL 触发的运行时(用户 30 分钟不回 → 默认行为)

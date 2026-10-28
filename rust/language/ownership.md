@@ -95,7 +95,7 @@ impl Drop for Reservation<'_> {
 
 ## 相关链接
 
-- [`traits.md`](traits.md)（泛型与动态分发；借用规则在 trait 上的表现）
-- [`interior_mutability.md`](interior_mutability.md)（借用检查过不去时的正经出口）
-- [`../runtime/memory.md`](../runtime/memory.md)（move、Box、Vec 在内存里到底发生了什么）
-- [`../engineering/bounds.md`](../engineering/bounds.md)（`Reservation` 这类 RAII 守卫在有界容器里的用法）
+- [trait / 泛型 / 动态分发](traits.md)（泛型与动态分发；借用规则在 trait 上的表现）
+- [内部可变性：Cell / RefCell / OnceLock / Mutex 家族](interior_mutability.md)（借用检查过不去时的正经出口）
+- [内存布局与分配](../runtime/memory.md)（move、Box、Vec 在内存里到底发生了什么）
+- [有界容器](../engineering/bounds.md)（`Reservation` 这类 RAII 守卫在有界容器里的用法）

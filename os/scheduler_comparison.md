@@ -1,7 +1,7 @@
 # 调度器对比 (Scheduler Comparison)
 
 这一篇**不深入任何单一调度器**，而是把不同生态里常见的调度器放在同一张表上对比：调度什么、怎么抢、怎么权衡吞吐与延迟。  
-Linux CFS 内部细节看 [`process.md`](process.md) 的 8.2 节；Go GMP 内部细节看 [`go/runtime/scheduler.md`](../go/runtime/scheduler.md)；线程/协程模型看 [`concurrency.md`](concurrency.md) 的第 4 节。
+Linux CFS 内部细节看 [Process](process.md) 的 8.2 节；Go GMP 内部细节看 [Go Scheduler](../go/runtime/scheduler.md)；线程/协程模型看 [Concurrency](concurrency.md) 的第 4 节。
 
 ## TL;DR
 
@@ -72,7 +72,7 @@ Linux CFS 内部细节看 [`process.md`](process.md) 的 8.2 节；Go GMP 内部
 
 ### 2.4 Go GMP
 
-> GMP 详细内部细节看 [`go/runtime/scheduler.md`](../go/runtime/scheduler.md)，这里只从“调度器对比”视角看取舍。
+> GMP 详细内部细节看 [Go Scheduler](../go/runtime/scheduler.md)，这里只从“调度器对比”视角看取舍。
 
 - **调度对象**：**goroutine (G)**，初始栈 2 KB，按需扩缩。
 - **核心机制**：
@@ -175,8 +175,8 @@ Linux CFS 内部细节看 [`process.md`](process.md) 的 8.2 节；Go GMP 内部
 
 ## 相关阅读
 
-- [`process.md`](process.md)：CFS 内部细节、上下文切换与观测
-- [`concurrency.md`](concurrency.md)：M:N / 1:1 / N:1 线程模型
-- [`io.md`](io.md)：I/O 多路复用（epoll/io_uring）——用户态调度器的“喂养”机制
-- [`virtualization.md`](virtualization.md)：vCPU 调度与 KVM
-- [`go/runtime/scheduler.md`](../go/runtime/scheduler.md)：Go GMP 详解
+- [Process](process.md)：CFS 内部细节、上下文切换与观测
+- [Concurrency](concurrency.md)：M:N / 1:1 / N:1 线程模型
+- [I/O Management](io.md)：I/O 多路复用（epoll/io_uring）——用户态调度器的“喂养”机制
+- [虚拟化与容器](virtualization.md)：vCPU 调度与 KVM
+- [Go Scheduler](../go/runtime/scheduler.md)：Go GMP 详解

@@ -9,7 +9,7 @@
 - **`Option` 表示"可能没有"，`Result` 表示"可能失败"**。两者别混：`Result<Option<T>, E>` 才是"查询失败"与"查不到"的正解。
 - **`let … else` 适合"拿不到就早退"**，比 `match` + `return` 少一层缩进，比 `unwrap` 明确。
 - **组合子优于嵌套 `match`**：`ok_or_else` / `and_then` / `map_or` / `filter` 把分支摊平成链。
-- **库代码该用具体错误类型（`thiserror`），应用入口才用 `anyhow`**——反过来的话，调用方就失去了分类能力（参见 [`../engineering/errors.md`](../engineering/errors.md)）。
+- **库代码该用具体错误类型（`thiserror`），应用入口才用 `anyhow`**——反过来的话，调用方就失去了分类能力（参见 [错误分类](../engineering/errors.md)）。
 
 ## 1. `?` 到底做了什么
 
@@ -71,7 +71,7 @@ fn find(&self, k: &str) -> Result<Option<Entry>>;
 
 ## 4. 错误类型的边界
 
-- **库 / capability 内部**：具体枚举（`thiserror` 派生），每类带分类，跨进程可传（见 [`../engineering/errors.md`](../engineering/errors.md)）。
+- **库 / capability 内部**：具体枚举（`thiserror` 派生），每类带分类，跨进程可传（见 [错误分类](../engineering/errors.md)）。
 - **二进制入口 / CLI**：`anyhow::Result` 可以，但要**在边界上转换一次**（`anyhow!(err)`），不要把它渗进 capability 签名。
 - **测试**：`unwrap` / `expect` 合理，且测试 crate 显式 `allow(clippy::unwrap_used)`。
 
@@ -99,7 +99,7 @@ fn find(&self, k: &str) -> Result<Option<Entry>>;
 
 ## 相关链接
 
-- [`../engineering/errors.md`](../engineering/errors.md)（错误分类、跨进程传输、与 Go 侧的对齐）
-- [`ownership.md`](ownership.md)（`?` 早退与 `Drop` 回滚是同一套"提前退出也要保持状态一致"的思路）
-- [`traits.md`](traits.md)（`From` / `Into` 是 trait 系统的一部分）
-- [`../engineering/async_blocking.md`](../engineering/async_blocking.md)（异步函数里的错误传播与阻塞的关系）
+- [错误分类](../engineering/errors.md)（错误分类、跨进程传输、与 Go 侧的对齐）
+- [所有权 / 借用 / 生命周期](ownership.md)（`?` 早退与 `Drop` 回滚是同一套"提前退出也要保持状态一致"的思路）
+- [trait / 泛型 / 动态分发](traits.md)（`From` / `Into` 是 trait 系统的一部分）
+- [async / blocking 边界](../engineering/async_blocking.md)（异步函数里的错误传播与阻塞的关系）

@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-- 控制循环是把 [`agent.md`](../agent.md) 里 "Observe → Think → Act → Check → Repeat" 的概念图**落到代码**的 driver；它本身不"思考"，只负责把模型的决策**分发、执行、回灌、复测**。
+- 控制循环是把 [Agent](../agent.md) 里 "Observe → Think → Act → Check → Repeat" 的概念图**落到代码**的 driver；它本身不"思考"，只负责把模型的决策**分发、执行、回灌、复测**。
 - 一个 session = 一个 while-loop + 显式状态机：`idle → running → awaiting_tool / awaiting_user → done | failed`，每轮 `build prompt → call LLM → parse → dispatch tool → observe → 拼回`。
 - 多 agent 4 模式（Chain / Parallel / Cycle / Graph）共享**同一套 driver**；区别只在"下一步"由谁选、怎么等。
 - 终止条件是**分层防御**——协议 `finish_reason`、步数上限、超时、成本预算、语义 stopping rule 互相补位，单层永远会被绕过。
@@ -10,7 +10,7 @@
 
 ## 1. 概念 → 接口的映射
 
-[`agent.md`](../agent.md) 的"典型系统架构"一节给了概念骨架（Observe → Think → Act → Check → Repeat），对应到 driver 的具体动作是：
+[Agent](../agent.md) 的"典型系统架构"一节给了概念骨架（Observe → Think → Act → Check → Repeat），对应到 driver 的具体动作是：
 
 | 概念步  | Driver 里的具体动作                                                                 |
 | :------ | :---------------------------------------------------------------------------------- |
@@ -101,7 +101,7 @@ LLM 一轮的返回里 driver 只关心三件事，按出现顺序处理：
 | `tool_use` / `tool_calls`   | 协议要求必须执行至少一个 tool，否则视作协议违规                 |
 | `length`                    | 截断——是否补一轮（提醒 "continue"）还是直接 `failed` 是策略选择 |
 | `content_filter` / `safety` | 按 `failed` 处理；可能需要 escalate 或人工审核                  |
-| `error`                     | driver 层面重试（见 [`./resilience.md`](./resilience.md)）      |
+| `error`                     | driver 层面重试（见 [韧性](./resilience.md)）      |
 
 ## 4. 终止条件：分层防御
 
@@ -116,11 +116,11 @@ LLM 一轮的返回里 driver 只关心三件事，按出现顺序处理：
 - **错误层**：连续 N 次同类型错误 → `failed`（同时是 replan 的触发器）
 - **语义层（stopping rule）**：verifier pass / 目标信号出现 → 提前 `done`
 
-`finish_reason="stop"` **不可信**——模型可能"想停但说没完"，也可能"已经答完但忘了 finish"。语义层是真正决定"任务做完没"的一层，详见 [`./resilience.md`](./resilience.md) 和 [`../evals.md`](../evals.md)。
+`finish_reason="stop"` **不可信**——模型可能"想停但说没完"，也可能"已经答完但忘了 finish"。语义层是真正决定"任务做完没"的一层，详见 [韧性](./resilience.md) 和 [评测](../evals.md)。
 
 ## 5. 同一个 driver，4 种拓扑
 
-[`../multi_agent.md`](../multi_agent.md) §3 介绍的 Chain / Parallel / Cycle / Graph 共享**同一套 driver**——区别只是"下一步"由谁选、怎么等：
+[多 Agent 编排](../multi_agent.md) §3 介绍的 Chain / Parallel / Cycle / Graph 共享**同一套 driver**——区别只是"下一步"由谁选、怎么等：
 
 | 拓扑     | driver 的"下一步"逻辑                                         |
 | :------- | :------------------------------------------------------------ |
@@ -139,7 +139,7 @@ token 级流式对 driver 的影响不在"快一点"，而在"**状态机可以�
 - **流式**：边收 chunk 边分发——text chunk 推前端、tool_call chunk 累积到完整 JSON 再 dispatch。
   - Anthropic SSE 用 `content_block_start` / `content_block_delta` / `content_block_stop` 标记 tool_call 块边界
   - OpenAI 用 `delta.tool_calls` 增量累积，需要按 `index` 拼装
-- **中断语义**：流式下用户可以"在生成中按停"——abort signal 传到 LLM 连接、关 sandbox、partial state 落 checkpoint。详见 [`./io.md`](./io.md)。
+- **中断语义**：流式下用户可以"在生成中按停"——abort signal 传到 LLM 连接、关 sandbox、partial state 落 checkpoint。详见 [Harness I/O：流式 / 中断 / HITL / 通道](./io.md)。
 
 > 流式的核心收益不是 latency，是**可交互性**。首 token 提前是副作用，能在 token 级别 cancel / steer / 追加输入才是设计目标。
 
@@ -149,7 +149,7 @@ driver 要兼容三种 tool call 来源：
 
 - **function calling JSON**（OpenAI `tools` / Anthropic `tool_use` / Gemini `functionDeclarations`）：结构化、`id` + `name` + `arguments`，driver 直接 dispatch
 - **文本嵌入的工具指令**（ReAct 风格的 `Action: ... Action Input: {...}`）：需要正则 / grammar 解析；多轮 batch 时按出现顺序拼回
-- **多轮 tool call 的批处理**：同一 `finish_reason=tool_use` 里可能有 N 个 call，driver 要**并行**调（前提是相互独立，详见 [`../tools.md`](../tools.md) §7），再统一回填
+- **多轮 tool call 的批处理**：同一 `finish_reason=tool_use` 里可能有 N 个 call，driver 要**并行**调（前提是相互独立，详见 [工具使用](../tools.md) §7），再统一回填
 
 ## 8. 三个容易写反的地方
 
@@ -173,13 +173,13 @@ driver 要兼容三种 tool call 来源：
 - [ ] tool_call 解析兼容 function-calling JSON 与文本嵌入指令；多轮 batch 正确回填
 - [ ] 用户中断、模型卡死、sandbox 崩溃各自有兜底；abort 信号能传到 LLM 连接
 - [ ] 错误对模型"可读"（错类型 + 能否重试），不直接喂 stack trace
-- [ ] 状态可恢复：checkpoint 持久化 + resume 路径演练过（与 [`./state.md`](./state.md) 对接）
+- [ ] 状态可恢复：checkpoint 持久化 + resume 路径演练过（与 [状态管理与 Checkpoint](./state.md) 对接）
 
 ## 相关链接
 
-- [`../agent.md`](../agent.md)：概念层的控制循环定义（Observe → Think → Act → Check → Repeat）
-- [`../multi_agent.md`](../multi_agent.md)：4 模式（Chain / Parallel / Cycle / Graph）由控制循环驱动
-- [`./sandbox.md`](./sandbox.md)：每一步工具调用都在 sandbox 里执行
-- [`./resilience.md`](./resilience.md)：终止条件、retry / backoff、stopping rule 的实现细节
-- [`./io.md`](./io.md)：streaming 协议差异与用户中断
-- [`../tools.md`](../tools.md)：tool 协议本身（function calling / MCP）
+- [Agent](../agent.md)：概念层的控制循环定义（Observe → Think → Act → Check → Repeat）
+- [多 Agent 编排](../multi_agent.md)：4 模式（Chain / Parallel / Cycle / Graph）由控制循环驱动
+- [沙箱与权限执行](./sandbox.md)：每一步工具调用都在 sandbox 里执行
+- [韧性](./resilience.md)：终止条件、retry / backoff、stopping rule 的实现细节
+- [Harness I/O：流式 / 中断 / HITL / 通道](./io.md)：streaming 协议差异与用户中断
+- [工具使用](../tools.md)：tool 协议本身（function calling / MCP）

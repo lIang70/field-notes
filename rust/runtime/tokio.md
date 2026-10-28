@@ -40,7 +40,7 @@ Err(broadcast::error::RecvError::Closed) => return,
 
 - 这里的 `sender` 是**给该订阅者的 `mpsc::Sender`**（`broadcast` 那端只负责 `subscribe` / `recv`，它的 `send` 是同步的）。
 - **`Lagged` 不能 `continue`**：调用方会以为没丢过数据。
-- 发一条 `Lag { next_seq }` 把"缺口"变成协议的一部分，读者可以去存储补读——这正是"日志是权威，广播只是通知"的分工（存储侧的增量读见 [`../../go/engineering/optimization.md`](../../go/engineering/optimization.md) 的 `LoadAfter`）。
+- 发一条 `Lag { next_seq }` 把"缺口"变成协议的一部分，读者可以去存储补读——这正是"日志是权威，广播只是通知"的分工（存储侧的增量读见 [桌面 agent 的性能治理](../../go/engineering/optimization.md) 的 `LoadAfter`）。
 - 快照边界要一起处理：订阅时先拿一个 `snapshot` 序号，之后丢弃 `seq < snapshot` 的事件，避免重放与实时流重叠。
 
 ## 3. 世代切换（reload）
@@ -102,7 +102,7 @@ let mut current = self.current.lock().await;
 
 ## 相关链接
 
-- [`../engineering/async_blocking.md`](../engineering/async_blocking.md)（阻塞调用怎么搬出 async 上下文）
-- [`../engineering/bounds.md`](../engineering/bounds.md)（超时、队列容量、排空 grace 都属于"有界"）
-- [`../architecture/workspace.md`](../architecture/workspace.md)（这些通道与锁分布在哪些模块）
-- [`../../go/engineering/observability.md`](../../go/engineering/observability.md)（换世代这件事怎么归因到日志）
+- [async / blocking 边界](../engineering/async_blocking.md)（阻塞调用怎么搬出 async 上下文）
+- [有界容器](../engineering/bounds.md)（超时、队列容量、排空 grace 都属于"有界"）
+- [Rust workspace 的形状](../architecture/workspace.md)（这些通道与锁分布在哪些模块）
+- [可观测性](../../go/engineering/observability.md)（换世代这件事怎么归因到日志）

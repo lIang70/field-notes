@@ -1,7 +1,7 @@
 # 多 Agent 编排 (Multi-Agent Orchestration)
 
-> 这篇不重复 [`agent.md`](agent.md) 里"单 agent 闭环"的工程细节；本篇把焦点放在**多个 agent 怎么协作**：编排模式、状态如何共享、任务如何交接、失败如何恢复、业界主流框架的取舍。  
-> 单 agent 的感知 / 规划 / 工具 / 评估见 [`agent.md`](agent.md)；Tool Use / MCP 见 [`tools.md`](tools.md)；RAG 见 [`rag.md`](rag.md)；评测见 [`evals.md`](evals.md)。
+> 这篇不重复 [Agent](agent.md) 里"单 agent 闭环"的工程细节；本篇把焦点放在**多个 agent 怎么协作**：编排模式、状态如何共享、任务如何交接、失败如何恢复、业界主流框架的取舍。  
+> 单 agent 的感知 / 规划 / 工具 / 评估见 [Agent](agent.md)；Tool Use / MCP 见 [工具使用](tools.md)；RAG 见 [RAG / 知识检索](rag.md)；评测见 [评测](evals.md)。
 
 ## TL;DR
 
@@ -18,7 +18,7 @@
 
 ### 1.1 单 agent 的能力上限
 
-- **上下文窗口**：会话越长，关键事实越易"被淹没"（Lost-in-the-Middle，见 [`prompt_engineering.md`](prompt_engineering.md)）。
+- **上下文窗口**：会话越长，关键事实越易"被淹没"（Lost-in-the-Middle，见 [提示工程](prompt_engineering.md)）。
 - **工具数量**：超过 20-30 个，模型挑错 / 填错概率显著上升。
 - **专精度**：同一个 prompt 既写代码又做访谈又写法律意见，模型会"折中"——所有方向都到 60 分。
 - **可调试性**：50 步轨迹都属于"一个 agent"时，定位错误的难度和"系统变黑盒"成正比。
@@ -38,7 +38,7 @@
 
 ## 2. 核心概念
 
-- **Agent**：在环境中闭环运行的决策系统（详见 [`agent.md`](agent.md)）。
+- **Agent**：在环境中闭环运行的决策系统（详见 [Agent](agent.md)）。
 - **Role**：agent 在多 agent 系统中的"身份标签"，绑定 instruction / 工具集 / 输出 schema（CrewAI `Agent.role`、MetaGPT 的"PM / 架构师 / 工程师"）。
 - **Orchestration**：决定"下一步由哪个 agent 跑、传什么 state、收到结果后做什么"的上层控制逻辑。编排者本身可以是一个 LLM（AutoGen `GroupChatManager`）、一段确定性代码（trpc-agent-go `ChainAgent`）、或一个图（LangGraph / Google ADK Workflow）。
 - **Handoff**：把当前任务 / 对话的所有权从一个 agent 转给另一个 agent（Swarm handoff、AutoGen group chat、AG-UI transfer 事件）。
@@ -167,7 +167,7 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 
 ### 7.1 MCP（Model Context Protocol）
 
-"agent ↔ 工具 / 资源 / 数据源" 的协议。详见 [`tools.md`](tools.md) 与 [modelcontextprotocol.io](https://modelcontextprotocol.io/)。  
+"agent ↔ 工具 / 资源 / 数据源" 的协议。详见 [工具使用](tools.md) 与 [modelcontextprotocol.io](https://modelcontextprotocol.io/)。  
 **类比**：USB-C 端口——把数据源 / 工具 / 工作流以标准方式接进来。解决**单个 agent 的能力扩展**，不解决"两个 agent 怎么对话"。
 
 ### 7.2 A2A（Agent-to-Agent）
@@ -227,7 +227,7 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 
 ## 11. 评估（trajectory + outcome 双轨）
 
-多 agent 系统的评测比单 agent 难——变量更多、归因更难。**两条线一起跑**，缺一不可。详见 [`evals.md`](evals.md)。
+多 agent 系统的评测比单 agent 难——变量更多、归因更难。**两条线一起跑**，缺一不可。详见 [评测](evals.md)。
 
 - **Trajectory-level**：正确性（是否走了"该走的路径"）、效率（步数是否合理、有无大量"无效试错"）、合规性（是否触碰禁区、是否触发 HITL 该有的中断、是否注入了不该被信任的外部材料）、可重放性（同输入同 seed 能否复现出同轨迹）。
 - **Outcome-level**：任务成功率（在 N 个 case 上完成率）、质量指标（人评或 LLM-as-Judge 评最终输出质量，rubric 化）、副作用正确性（写库数据、邮件内容、有无"计划外"副作用）。
@@ -282,7 +282,7 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 3. **加 Checkpoint + 副作用幂等**：在每个关键节点落盘 state；所有对外副作用加 idempotency_key。可断点续跑、可时间旅行调试、故障可恢复。
 4. **加 HITL + Inter-agent 协议**：高风险动作加 interrupt + 人工审批；对外暴露 A2A 端点；接 MCP server；前端走 AG-UI 实时显示。与企业 / 跨厂商生态对齐。
 
-> **反序提醒**：很多团队一上来就"图 + 协议 + HITL 全配齐"，结果是图还没跑通，先在协议层卡一周。**先闭环最小流程，再加工程化**——这与 [`evals.md`](evals.md) 里 "Eval-Driven Development" 的精神一致。
+> **反序提醒**：很多团队一上来就"图 + 协议 + HITL 全配齐"，结果是图还没跑通，先在协议层卡一周。**先闭环最小流程，再加工程化**——这与 [评测](evals.md) 里 "Eval-Driven Development" 的精神一致。
 
 ## 14. 上线前检查清单
 
@@ -299,11 +299,11 @@ Interrupt 是图执行中的"显式挂起点"，event bus 则是解耦"生产 / 
 
 ## 相关链接
 
-- [`agent.md`](agent.md)：单 agent 闭环、感知 / 规划 / 工具 / 评估的工程抓手
-- [`tools.md`](tools.md)：Tool Use / Function Calling / MCP 的细节与工具 spec 设计
-- [`rag.md`](rag.md)：检索增强生成（agent 的"知识来源"侧）
-- [`prompt_engineering.md`](prompt_engineering.md)：多 agent 的"指令"和"模式"基础
-- [`evals.md`](evals.md)：评测体系；trajectory / outcome / 资源指标的关系
+- [Agent](agent.md)：单 agent 闭环、感知 / 规划 / 工具 / 评估的工程抓手
+- [工具使用](tools.md)：Tool Use / Function Calling / MCP 的细节与工具 spec 设计
+- [RAG / 知识检索](rag.md)：检索增强生成（agent 的"知识来源"侧）
+- [提示工程](prompt_engineering.md)：多 agent 的"指令"和"模式"基础
+- [评测](evals.md)：评测体系；trajectory / outcome / 资源指标的关系
 - [`harness/`](harness/)：运行时层（checkpoint 持久化 / retry / HITL 等待 / 进程生命周期的工程实现）
 
 ## 参考

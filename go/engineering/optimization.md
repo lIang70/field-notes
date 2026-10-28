@@ -27,7 +27,7 @@
 | §7 调度账 | 装配次数与耗时 | workspace 日志 + 装配 reason（不是 profile） |
 | §8 UI 账 | 帧耗时 / DOM 行数 | RUM + Playwright baseline |
 
-> 取数方法本身写在 [`../runtime/pprof.md`](../runtime/pprof.md)：`alloc_space` 看反复分配，`inuse_space` 看泄漏，成对拍看"只涨不落"的那一项。
+> 取数方法本身写在 [pprof 与性能读法](../runtime/pprof.md)：`alloc_space` 看反复分配，`inuse_space` 看泄漏，成对拍看"只涨不落"的那一项。
 
 ## 0. 基线
 
@@ -56,7 +56,7 @@
 
 关键不是快 6 倍，而是**规则仍然只有一份**：text 与 tool result 直接从内容里数，其它形状回落 `RenderMessage`。一致性用种子语料钉住——pointer parts、文本旁的 tool activity、媒体、CJK、astral、非法 UTF-8、不是 JSON 的参数，逐 case 与渲染器对齐。
 
-> 这类"热点路径上的短命对象"在 `alloc_space` 里排最前，在 `inuse_space` 里几乎看不到（[`../runtime/pprof.md`](../runtime/pprof.md) §1）。
+> 这类"热点路径上的短命对象"在 `alloc_space` 里排最前，在 `inuse_space` 里几乎看不到（[pprof 与性能读法](../runtime/pprof.md) §1）。
 
 ## 2. 边界账：transcript 必须有上界
 
@@ -98,7 +98,7 @@
 3. **一页有上限**：`limit <= 0` 原本等于"读全部"，一次 ~42 MB 读还要序列化两遍到 webview。改成 clamp 到 64 轮，其余用 `beforeSeq` 翻页；每页 debug 日志带上 limit / cursor / 载入字节，重复读能在日志里看见，而不是只在 heap profile 里。
 4. **一个会话同时只开一次**：双击、切换焦点重试、resume 事件会同时触发 open，改成按会话 id 合并成一次（失败可重试）。
 
-这一节的性质都用测试钉住了：`handoff_test.go` 钉 take-once 与 var 回退，`assembly_test.go` 钉前缀缓存（没变不读、一轮读 tail、变短后重渲），再加一个"导入超过一页的会话再读回来"的绑定测试。写法见 [`testing.md`](testing.md) §5。
+这一节的性质都用测试钉住了：`handoff_test.go` 钉 take-once 与 var 回退，`assembly_test.go` 钉前缀缓存（没变不读、一轮读 tail、变短后重渲），再加一个"导入超过一页的会话再读回来"的绑定测试。写法见 [测试布局](testing.md) §5。
 
 ## 5. 缓存账：一次迁移的教训
 
@@ -109,7 +109,7 @@
 
 于是回滚到 item 缓存 + `LoadAfter` 增量读，并保留那次顺手加的字节预算（800 万字符，跨会话，最老的先驱逐，正在读的那条即使超额也保留）。
 
-这次判断用的是 `alloc_space` 加 `-focus message.decodeStrict`——不聚焦到那个符号，只会看到"runtime.mallocgc 排第一"（[`../runtime/pprof.md`](../runtime/pprof.md) §6 里那几条误读）。
+这次判断用的是 `alloc_space` 加 `-focus message.decodeStrict`——不聚焦到那个符号，只会看到"runtime.mallocgc 排第一"（[pprof 与性能读法](../runtime/pprof.md) §6 里那几条误读）。
 
 顺手记下"为什么不能给渲染结果做增量缓存"：`normalizeRawItems` 会丢掉"调用不在本批次里"的 tool result、给"永远没有回答的调用"补一个合成结果——单独渲染一个 delta 就得携带这套配对状态，否则会出现全量渲染里根本不存在的合成 "aborted" 结果。**那是设计改动，不是缓存微调**。
 
@@ -126,13 +126,13 @@ skills 搜索索引原来是 `map[term]map[doc]tf`（每个词一个 Go map）�
 
 两条测试钉住它：`TestIndexStaysFlat`（结构回退就红）、`TestRebuiltHostIsCollectable`（用 weak pointer 断言"旧 host 在重建后不可达"）。同一个 profile 还顺手修了 `grep`：先按 `stat` 退休超大文件，不再读 1 MiB 再丢弃；不再把每个文件复制成 string 再切成行（`TestGrepSkipsBinaryAndOversizedBeforeReading`、`TestScanLinesAllocatesNothing`）。
 
-> 这类测试的共同点：**钉性质，不钉数字**。阈值会在换机器那天红，"索引是扁平的"、"旧 host 不可达"、"扫描零分配"能守几年。写法见 [`testing.md`](testing.md) §5。
+> 这类测试的共同点：**钉性质，不钉数字**。阈值会在换机器那天红，"索引是扁平的"、"旧 host 不可达"、"扫描零分配"能守几年。写法见 [测试布局](testing.md) §5。
 
 ## 7. 调度与 IPC 账
 
 - **装配风暴**：一次 drain 里落进"保存设置 + 切工作区 + 插件写入"，会各唤醒一个 watcher、各建一份 replacement，然后关掉除第一个之外的。改成每个工作区一个延迟重建、`Acquire` 共享同一份装配，follower 直接复用 leader 的结果（连错误一起复用）；没改动内容的设置写入不再触发失效。
 - **流式事件合并**：一个 token 一个 IPC 事件。现在同一流里相邻的 text/reasoning delta 按 25ms 窗口（或 64 KiB / 128 条上限）折叠成一条 `stream` 事件；**每个非 stream 事件都是顺序屏障**（先 flush），保证 turn_end / usage 不会越过它前面的文本。合并规则与窗口自己的 coalescer 一致，所以已合并的流原样通过。
-- **归因**：装配路径打 `AssemblyReason`（startup / workspace_open / settings_save / plugin_change / …），日志里带 reason、耗时、是否在跑、该工作区的装配序号。没有归因，"谁在重建 runtime"永远说不清（字段设计见 [`observability.md`](observability.md) §1）。
+- **归因**：装配路径打 `AssemblyReason`（startup / workspace_open / settings_save / plugin_change / …），日志里带 reason、耗时、是否在跑、该工作区的装配序号。没有归因，"谁在重建 runtime"永远说不清（字段设计见 [可观测性](observability.md) §1）。
 - **脚本桥**：world 的 merge 改在 Go 侧完成，消息不再跨 goja 桥；compaction 节点不再用 JS 重新实现 token 估算（每个字符过一遍 goja 数 CJK：230 KB 频道 **62ms/次**、560 KB **171ms/次**，约 80 倍于原生），改成向 Go 要数——**策略留在脚本，测量归 Go**。
 
 ## 8. UI 渲染账
@@ -152,10 +152,10 @@ skills 搜索索引原来是 `map[term]map[doc]tf`（每个词一个 Go map）�
 
 ## 相关链接
 
-- [`conventions.md`](conventions.md)（错误分类、可选接口、双树这些约定）
-- [`../runtime/pprof.md`](../runtime/pprof.md)（取数方法：两种视图、成对拍、分相、误读）
-- [`testing.md`](testing.md)（怎么把上面的性质钉成测试）
-- [`observability.md`](observability.md)（装配归因与指标）
-- [`release.md`](release.md)（基线脚本与 required check 的关系）
-- [`../architecture/layering.md`](../architecture/layering.md)（board / checkpoint / assembly 这些概念来自哪一层）
-- [`../../ai/context_engineering.md`](../../ai/context_engineering.md)（上下文预算与计量单一归属）
+- [Go 工程约定](conventions.md)（错误分类、可选接口、双树这些约定）
+- [pprof 与性能读法](../runtime/pprof.md)（取数方法：两种视图、成对拍、分相、误读）
+- [测试布局](testing.md)（怎么把上面的性质钉成测试）
+- [可观测性](observability.md)（装配归因与指标）
+- [多模块发布与发布工程](release.md)（基线脚本与 required check 的关系）
+- [分层与扩展点](../architecture/layering.md)（board / checkpoint / assembly 这些概念来自哪一层）
+- [上下文工程](../../ai/context_engineering.md)（上下文预算与计量单一归属）

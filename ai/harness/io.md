@@ -1,7 +1,7 @@
 # Harness I/O：流式 / 中断 / HITL / 通道
 
 > 这篇聚焦 **agent harness 的"用户边界"**：从模型吐 token 出来到用户在 UI 上看见、按键、批准、中途改主意这一路。每个 I/O 决策都和"控制循环怎么转、下一步派什么、状态存哪"耦合在一起——单点优化没用，要把它当成运行时一等公民设计。  
-> 编排 / State / Checkpoint 见 [`../multi_agent.md`](../multi_agent.md)；单 agent 闭环见 [`../agent.md`](../agent.md)；流式与控制循环的接口见 [`./control_loop.md`](./control_loop.md)；等待时的状态见 [`./state.md`](./state.md)；长时任务进程见 [`./lifecycle.md`](./lifecycle.md)。
+> 编排 / State / Checkpoint 见 [多 Agent 编排](../multi_agent.md)；单 agent 闭环见 [Agent](../agent.md)；流式与控制循环的接口见 [控制循环](./control_loop.md)；等待时的状态见 [状态管理与 Checkpoint](./state.md)；长时任务进程见 [Agent 生命周期与 Harness 承载](./lifecycle.md)。
 
 ## TL;DR
 
@@ -52,14 +52,14 @@ event: step_finished  data: {"step_id": "s7", "tokens_in": 1820, "tokens_out": 4
 
 ### 2.3 结构化 event 流（AG-UI 16 事件）
 
-把 step / tool / state / message / interrupt 全部规范化。AG-UI（CopilotKit 主导，约 16 种事件）就是这件事的协议形态：`STEP_STARTED` / `TEXT_MESSAGE_CONTENT` / `TOOL_CALL_START` / `STATE_DELTA` / `MESSAGES_SNAPSHOT` / `RUN_FINISHED` / `RUN_ERROR` / ... 详见 [`../multi_agent.md`](../multi_agent.md) §7.3。
+把 step / tool / state / message / interrupt 全部规范化。AG-UI（CopilotKit 主导，约 16 种事件）就是这件事的协议形态：`STEP_STARTED` / `TEXT_MESSAGE_CONTENT` / `TOOL_CALL_START` / `STATE_DELTA` / `MESSAGES_SNAPSHOT` / `RUN_FINISHED` / `RUN_ERROR` / ... 详见 [多 Agent 编排](../multi_agent.md) §7.3。
 
 > **三粒度不互斥**：token 流给"打字感"，step 流给"进度感"，event 流给"前端可编程的协议面"。生产级 harness 三层都发，前端按通道能力选择渲染策略。
 
 ### 2.4 工程要点
 
 - **背压（backpressure）**：客户端渲染慢于推送时，要么丢（体验差）、要么堵（OOM）。正确做法是**双速率适配**——服务端按窗口推，客户端按帧渲染。
-- **断点续打**：用户刷新 / 切设备后能否从断点继续？需要 event id + 服务端 replay 缓冲（见 [`./state.md`](./state.md)）。
+- **断点续打**：用户刷新 / 切设备后能否从断点继续？需要 event id + 服务端 replay 缓冲（见 [状态管理与 Checkpoint](./state.md)）。
 - **可重放**：把 stream 当 log 持久化，调试时回放任意 step 之后的 UI 状态。
 - **取消语义**：客户端断开 ≠ agent 停止；要分清"用户离开了"与"用户取消了"。
 
@@ -67,7 +67,7 @@ event: step_finished  data: {"step_id": "s7", "tokens_in": 1820, "tokens_out": 4
 
 ### 3.1 中断的三种语义
 
-- **Cancel**：用户要停。`context.Cancel` 一路传到工具调用、LLM stream、子 agent；并触发"补偿事务"——回滚已发出的副作用（幂等键 + 副作用日志，见 [`../multi_agent.md`](../multi_agent.md) §9）。
+- **Cancel**：用户要停。`context.Cancel` 一路传到工具调用、LLM stream、子 agent；并触发"补偿事务"——回滚已发出的副作用（幂等键 + 副作用日志，见 [多 Agent 编排](../multi_agent.md) §9）。
 - **Steer / Redirect**：用户要改方向。当前 turn 不中断，但**新指令合入 prompt 的下一段边界**——下一个 LLM step 拿到的 prompt 是"原指令 + 增量指令"或"原指令被替代"。
 - **Inject**：用户在当前 step 末尾加一段补充。等价于"先 steer 再继续"。
 
@@ -142,7 +142,7 @@ data: {
 
 > **ETA 不准比"没有 ETA"更糟糕**。给一个会骗人的倒计时，用户宁愿你承认"我不知道还多久，但我还在做"。
 
-进度可重放：进度本身要进 checkpoint（见 [`./state.md`](./state.md)），恢复时无缝接上。通道不支持富文本（Slack / IM）时退化成"5/20 · ~2min left"式短文本——**绝不能没有**。
+进度可重放：进度本身要进 checkpoint（见 [状态管理与 Checkpoint](./state.md)），恢复时无缝接上。通道不支持富文本（Slack / IM）时退化成"5/20 · ~2min left"式短文本——**绝不能没有**。
 
 ## 6. 多 I/O 通道
 
@@ -174,7 +174,7 @@ data: {
 
 ## 7. 与 prompt 模板 / policy 的关系
 
-[`../agent.md`](../agent.md) 里的"Agent 指令骨架"有这一条：
+[Agent](../agent.md) 里的"Agent 指令骨架"有这一条：
 
 > 任何高风险操作必须先征得用户确认：删除 / 覆盖文件、执行破坏性命令、发送外部请求、付费 / 转账、对外发布内容。
 
@@ -213,8 +213,8 @@ policy 不该硬编码在 harness 代码里。policy 是 prompt 的一部分（"
 
 ## 相关链接
 
-- [`../agent.md`](../agent.md)：单 agent 闭环、prompt 模板里的权限 policy
-- [`../multi_agent.md`](../multi_agent.md)：HITL 触发条件（HITL 是"哪些动作需要人批"）；AG-UI 协议事件类型（§7.3）
-- [`./control_loop.md`](./control_loop.md)：流式输出与控制循环的接口
-- [`./state.md`](./state.md)：等待用户时的状态保存 / checkpoint
-- [`./lifecycle.md`](./lifecycle.md)：长时任务的进程持有 / 跨进程消息
+- [Agent](../agent.md)：单 agent 闭环、prompt 模板里的权限 policy
+- [多 Agent 编排](../multi_agent.md)：HITL 触发条件（HITL 是"哪些动作需要人批"）；AG-UI 协议事件类型（§7.3）
+- [控制循环](./control_loop.md)：流式输出与控制循环的接口
+- [状态管理与 Checkpoint](./state.md)：等待用户时的状态保存 / checkpoint
+- [Agent 生命周期与 Harness 承载](./lifecycle.md)：长时任务的进程持有 / 跨进程消息

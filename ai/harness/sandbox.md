@@ -1,6 +1,6 @@
 # 沙箱与权限执行 (Sandbox & Permission Enforcement)
 
-> 本篇不重复 [`../agent.md`](../agent.md) 模板里"安全与权限边界"的 prompt 写法，也不写 tool 协议本身（那是 [`../tools.md`](../tools.md) 的事）。本篇聚焦 harness 怎么把 policy 文本**真的落地**为运行时约束——deny-list、HITL 触发、强制 sandbox、资源 quota。
+> 本篇不重复 [Agent](../agent.md) 模板里"安全与权限边界"的 prompt 写法，也不写 tool 协议本身（那是 [工具使用](../tools.md) 的事）。本篇聚焦 harness 怎么把 policy 文本**真的落地**为运行时约束——deny-list、HITL 触发、强制 sandbox、资源 quota。
 
 ## TL;DR
 
@@ -91,7 +91,7 @@ Agent 自身是常驻进程；它调 `Bash` tool 时，工具运行器 `fork+exe
 
 ## 4. 权限 policy 的运行时落地
 
-[`../agent.md`](../agent.md) 模板里"安全与权限边界"那一段是 **policy 文本**——模型读了会"尽量遵守"，但**没有强制力**。Harness 必须把它**翻译成**可在运行时 enforce 的规则。
+[Agent](../agent.md) 模板里"安全与权限边界"那一段是 **policy 文本**——模型读了会"尽量遵守"，但**没有强制力**。Harness 必须把它**翻译成**可在运行时 enforce 的规则。
 
 ### 4.1 三层强制
 
@@ -99,7 +99,7 @@ Agent 自身是常驻进程；它调 `Bash` tool 时，工具运行器 `fork+exe
 - **二次确认（HITL interrupt）**：高风险动作（删数据 / 付费 / 对外发请求 / 改 prod 配置）由 harness **中断** agent、弹 UI 给用户确认；用户批了再继续，**批的状态写在 trace 里**便于审计。
 - **强制 sandbox（escape hatch）**：所有 tool 执行必须先经 sandbox 包装层——`unshare` / cgroup / seccomp / firejail，模型**拿不到绕过入口**。
 
-> **关键**：sandbox 必须是**路径必经的**。如果模型可以"调用 native tool 跳过 sandbox"，policy 就是空话。[`../tools.md`](../tools.md) 里"工具 spec 怎么设计"必须和"工具执行怎么被 harness 包"对齐。
+> **关键**：sandbox 必须是**路径必经的**。如果模型可以"调用 native tool 跳过 sandbox"，policy 就是空话。[工具使用](../tools.md) 里"工具 spec 怎么设计"必须和"工具执行怎么被 harness 包"对齐。
 
 ### 4.2 静态 vs 动态决策
 
@@ -190,8 +190,8 @@ every_step() -> {
 
 ## 相关链接
 
-- [`../agent.md`](../agent.md) — 权限 policy 在 prompt 模板里的写法（harness 把这些 policy 翻译成运行时规则）
-- [`../tools.md`](../tools.md) — tool 协议本身，以及 spec 怎么描述 sandbox 约束
-- [`./control_loop.md`](./control_loop.md) — 控制循环每一步都跑在 sandbox 之内
-- [`./lifecycle.md`](./lifecycle.md) — 进程级隔离（子 agent / 子进程何时 spawn、何时销毁）
-- [`../context_engineering.md`](../context_engineering.md) — 敏感数据在 sandbox 边界怎么处理（哪些进 context、哪些只是工具参数）
+- [Agent](../agent.md) — 权限 policy 在 prompt 模板里的写法（harness 把这些 policy 翻译成运行时规则）
+- [工具使用](../tools.md) — tool 协议本身，以及 spec 怎么描述 sandbox 约束
+- [控制循环](./control_loop.md) — 控制循环每一步都跑在 sandbox 之内
+- [Agent 生命周期与 Harness 承载](./lifecycle.md) — 进程级隔离（子 agent / 子进程何时 spawn、何时销毁）
+- [上下文工程](../context_engineering.md) — 敏感数据在 sandbox 边界怎么处理（哪些进 context、哪些只是工具参数）

@@ -1,7 +1,7 @@
 # Linux 网络栈 (Network Stack)
 
 这一篇聚焦 Linux 内核网络数据通路：包怎么从 NIC 进到用户态 socket，怎么在协议栈各层流转，又是怎么“减少拷贝/减少系统调用”地把吞吐拉满。  
-I/O 多路复用的 epoll/io_uring 部分与 [`io.md`](io.md) 互补阅读；CPU 调度/中断亲和性放在 [`process.md`](process.md)。
+I/O 多路复用的 epoll/io_uring 部分与 [I/O Management](io.md) 互补阅读；CPU 调度/中断亲和性放在 [Process](process.md)。
 
 ## TL;DR
 
@@ -237,7 +237,7 @@ io_uring_cqe_seen(&ring, cqe);
 
 ## 相关阅读
 
-- [`io.md`](io.md)：五种 I/O 模型、epoll LT/ET、零拷贝基础
-- [`process.md`](process.md)：上下文切换与多核调度影响网络线程设计
-- [`concurrency.md`](concurrency.md)：协程/线程模型与 epoll 的搭配
-- [`virtualization.md`](virtualization.md)：virtio-net / AF_XDP 与虚拟化网络的交叉
+- [I/O Management](io.md)：五种 I/O 模型、epoll LT/ET、零拷贝基础
+- [Process](process.md)：上下文切换与多核调度影响网络线程设计
+- [Concurrency](concurrency.md)：协程/线程模型与 epoll 的搭配
+- [虚拟化与容器](virtualization.md)：virtio-net / AF_XDP 与虚拟化网络的交叉
