@@ -1,6 +1,6 @@
 # Markdown notes: formatting/convention checks + the published site.
 # The check targets are a thin wrapper over scripts/format.py (stdlib);
-# the site targets are a thin wrapper over web/build.py (MkDocs), and all
+# the site targets are a thin wrapper over web/build.py (Zensical), and all
 # web code/config lives under web/.
 
 PYTHON ?= python3

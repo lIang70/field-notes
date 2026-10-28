@@ -192,7 +192,52 @@
   color: var(--ink-3);
 }
 
-/* search */
+/* search — Zensical renders a button (with a keycap) instead of Material's
+   input in the header, plus the same overlay form once opened */
+.md-search__button {
+  width: 10.5rem;
+  height: 2.1rem;
+  padding-right: 0.5rem;
+  padding-left: 2.05rem;
+  font-family: var(--sans);
+  font-size: 0.76rem;
+  color: var(--ink-3);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.md-search__button:hover,
+.md-search__button:focus {
+  color: var(--ink-2);
+  background: var(--surface);
+  border-color: var(--ink-3);
+}
+
+.md-search__button::before {
+  top: 0.62rem;
+  left: 0.75rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  background-color: var(--ink-3);
+}
+
+.md-search__button::after {
+  top: 0.44rem;
+  right: 0.5rem;
+  left: auto;
+  padding: 0.1rem 0.28rem;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+}
+
 .md-search__form {
   background: var(--surface);
   border: 1px solid var(--rule);

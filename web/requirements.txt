@@ -1,2 +1,2 @@
 # Site toolchain (see AGENTS.md). Notes themselves need no dependencies.
-mkdocs-material>=9.6,<10
+zensical>=0.0.73

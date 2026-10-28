@@ -32,5 +32,6 @@
 # ── Never commit (must stay last: later patterns win) ──
 web/.build/
 web/.venv/
+web/mkdocs.generated.yml
 __pycache__/
 *.pyc
