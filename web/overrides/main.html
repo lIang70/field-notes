@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{#
+  The landing page is fully hand-composed instead of rendering README.md,
+  which stays the plain-Markdown index for GitHub. Area cards are fed by
+  `extra.areas` (counts/hrefs are filled in by hooks/area_index.py at build
+  time), so adding notes never requires touching this file.
+#}
+
+{% block content %}
+  {% if page and page.is_homepage %}
+    <div class="home">
+      <section class="hero">
+        <p class="hero__kicker"><span class="hero__dot"></span>personal engineering notes</p>
+        <h1 class="hero__title">工程笔记<span class="hero__title-en">field notes</span></h1>
+        <p class="hero__lede">
+          写给未来的自己：只留<strong>反直觉的点</strong>和<strong>工程的抓手</strong>，
+          不抄教科书、不覆盖从零开始。<br>
+          读完应该能在三分钟内回忆起“当时为什么这么选”。
+        </p>
+        <dl class="hero__stats">
+          <div><dt>notes</dt><dd>{{ config.extra.stats.notes }}</dd></div>
+          <div><dt>areas</dt><dd>{{ config.extra.stats.areas }}</dd></div>
+          <div><dt>license</dt><dd class="hero__stat-text">CC-BY-4.0</dd></div>
+          <div><dt>source</dt><dd class="hero__stat-text"><a href="{{ config.repo_url }}">GitHub</a></dd></div>
+        </dl>
+      </section>
+
+      <section class="home__areas" aria-label="areas">
+        {% for area in config.extra.areas %}
+          <a class="area-card{% if '/' in area.dir %} area-card--sub{% endif %}" href="{{ area.href }}">
+            <span class="area-card__kicker">{{ area.kicker }}</span>
+            <span class="area-card__label">{{ area.label }}</span>
+            <span class="area-card__tagline">{{ area.tagline }}</span>
+            <span class="area-card__count">{{ area.count }}<i>篇</i></span>
+          </a>
+        {% endfor %}
+      </section>
+
+      <section class="home__cols">
+        <article>
+          <h3>这是什么</h3>
+          <p>个人笔记本。断言、取舍、踩过的坑，以及在两个方案之间选一个的理由。</p>
+        </article>
+        <article>
+          <h3>这不是什么</h3>
+          <p>不是教程、不是参考手册。假设你已经会写代码，也不保证全部正确。</p>
+        </article>
+        <article>
+          <h3>怎么用</h3>
+          <p>按区域进卡片页翻，或用 <kbd>/</kbd> 搜索；仓库里也能直接
+            <a href="{{ config.repo_url }}">rg</a>。</p>
+        </article>
+      </section>
+
+      <p class="home__foot">
+        内容以 <a href="https://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a> 授权，
+        转载请注明出处。笔记里的图（mermaid）与代码块可直接复制。
+      </p>
+    </div>
+  {% else %}
+    {{ super() }}
+  {% endif %}
+{% endblock %}

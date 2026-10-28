@@ -33,7 +33,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SKIP_DIRS = {".git", "node_modules", ".venv", "dist", "out"}
+SKIP_DIRS = {".git", "node_modules", ".venv", ".build", "dist", "out"}
 FENCE_RE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+\S")
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)")

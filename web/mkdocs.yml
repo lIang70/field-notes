@@ -1,0 +1,114 @@
+# Site build config — everything web-related lives in this folder.
+# Notes live at the repo root (`go/`, `rust/`, `os/`, `ai/`) and are staged into
+# `web/.build/docs` by `web/build.py` before MkDocs runs, so the repository
+# layout stays exactly as it is on GitHub. Paths below are relative to web/.
+site_name: field notes
+site_url: https://liang70.github.io/field-notes/
+site_description: l1ang70 的个人工程笔记 — C++ / Go / OS / AI，写给快速回忆，不写教科书。
+site_author: l1ang70
+repo_url: https://github.com/lIang70/field-notes
+repo_name: lIang70/field-notes
+
+docs_dir: .build/docs
+site_dir: .build/site
+
+hooks:
+  - hooks/area_index.py
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: zh
+  font: false # system CJK stack, no webfont round-trip
+  favicon: assets/favicon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: 切到深色
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: 切到浅色
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.indexes
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+
+extra_css:
+  - stylesheets/theme.css
+
+extra:
+  generator: false
+  # Home-page cards. `count` / `href` are filled in by hooks/area_index.py.
+  areas:
+    - dir: go
+      label: Go
+      kicker: "01 / 语言与运行时"
+      tagline: 分层与插件宿主、工程规范与发布、构建打包、并发、语言机制、运行时
+    - dir: rust
+      label: Rust
+      kicker: "02 / 所有权与边界"
+      tagline: 所有权与 trait、内部可变性、unsafe 边界、内存布局与分配、tokio 与 async/blocking
+    - dir: os
+      label: OS
+      kicker: "03 / 系统内部"
+      tagline: 进程与调度、内存、并发原语、I/O、文件系统、虚拟化、网络栈
+    - dir: ai
+      label: AI
+      kicker: "04 / 智能体工程"
+      tagline: agent、上下文工程、记忆、RAG、工具与 MCP、多智能体、评测
+    - dir: ai/harness
+      label: AI Harness
+      kicker: "04b / 运行时层"
+      tagline: 沙箱、控制循环、重试与超时、状态持久化、可观测、I/O、生命周期
+
+markdown_extensions:
+  - meta
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search:
+      # lunr tokenizes on whitespace by default, which turns a whole Chinese
+      # sentence into one token. Split on CJK punctuation as well.
+      separator: '[\s\u200b\-，。、；：！？（）「」『』《》【】…]+'
+
+validation:
+  omitted_files: ignore
+  absolute_links: info
+  unrecognized_links: ignore
+  anchors: warn
