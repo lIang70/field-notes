@@ -258,7 +258,7 @@ def _home_page(notes, children) -> str:
             '<div class="home">',
             "  <section class=\"hero\">",
             '    <p class="hero__kicker"><span class="hero__dot"></span>personal engineering notes</p>',
-            '    <h1 class="hero__title">工程笔记<span class="hero__title-en">field notes</span></h1>',
+            '    <h1 class="hero__title">工程笔记<span class="hero__title-en">logbook</span></h1>',
             '    <p class="hero__lede">',
             "      多数是在读完一段源码、调完一次性能、或者踩完一个坑之后写的。<br>",
             "      <strong>结论放最前面</strong>，后面是理由、取舍，以及还没想清楚的地方。",
@@ -268,7 +268,7 @@ def _home_page(notes, children) -> str:
             f'      <div><dt>areas</dt><dd>{len(areas)}</dd></div>',
             '      <div><dt>license</dt><dd class="hero__stat-text">CC-BY-4.0</dd></div>',
             '      <div><dt>source</dt><dd class="hero__stat-text">'
-            '<a href="https://github.com/lIang70/field-notes">GitHub</a></dd></div>',
+            '<a href="https://github.com/lIang70/logbook">GitHub</a></dd></div>',
             "    </dl>",
             "  </section>",
             "",
@@ -288,7 +288,7 @@ def _home_page(notes, children) -> str:
             "    <article>",
             "      <h3>怎么找</h3>",
             '      <p>按区域翻卡片，或者用搜索框（<kbd>⌘K</kbd>）。仓库里 '
-            '<a href="https://github.com/lIang70/field-notes">rg</a> 一样快。</p>',
+            '<a href="https://github.com/lIang70/logbook">rg</a> 一样快。</p>',
             "    </article>",
             "  </section>",
             "",

@@ -6,12 +6,12 @@
 # `nav:` is intentionally absent: web/build.py generates it (plus a card-grid
 # landing page per directory) into web/mkdocs.generated.yml, which is what
 # Zensical actually builds. See web/generate.py.
-site_name: field notes
-site_url: https://liang70.github.io/field-notes/
+site_name: logbook
+site_url: https://liang70.github.io/logbook/
 site_description: l1ang70 的个人工程笔记 — C++ / Go / OS / AI，写给快速回忆，不写教科书。
 site_author: l1ang70
-repo_url: https://github.com/lIang70/field-notes
-repo_name: lIang70/field-notes
+repo_url: https://github.com/lIang70/logbook
+repo_name: lIang70/logbook
 
 docs_dir: .build/docs
 site_dir: .build/site
